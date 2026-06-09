@@ -392,28 +392,30 @@ export default function App() {
     setPaintMode(null)
   }
 
-  const getFirstWeekStartOfMonth = date => {
-    const monthStart = startOfMonth(date)
-    const day = monthStart.getDay()
+  const getWeekMonthKey = day => {
+    const monthStart = startOfMonth(day)
+    const monthStartDay = monthStart.getDay()
 
-    // 일요일이면 다음 월요일
-    if (day === 0) {
-      const nextMonday = new Date(monthStart)
-      nextMonday.setDate(monthStart.getDate() + 1)
-      return nextMonday
+    // 그 달 1일이 월/화/수면 그 주부터 해당 월 1주차
+    if (monthStartDay >= 1 && monthStartDay <= 3) {
+      return format(day, 'yyyy-MM')
     }
 
-    // 월/화/수면 그 주를 1주차로 인정
-    if (day >= 1 && day <= 3) {
-      const monday = new Date(monthStart)
-      monday.setDate(monthStart.getDate() - (day - 1))
-      return monday
+    // 그 달 1일이 목/금/토/일이면 첫 월요일 전까지는 이전 달 마지막 주
+    const firstMonday = new Date(monthStart)
+
+    if (monthStartDay === 0) {
+      firstMonday.setDate(monthStart.getDate() + 1)
+    } else {
+      firstMonday.setDate(monthStart.getDate() + (8 - monthStartDay))
     }
 
-    // 목/금/토면 다음 월요일부터 1주차
-    const nextMonday = new Date(monthStart)
-    nextMonday.setDate(monthStart.getDate() + (8 - day))
-    return nextMonday
+    if (day < firstMonday) {
+      const prevMonth = addMonths(monthStart, -1)
+      return format(prevMonth, 'yyyy-MM')
+    }
+
+    return format(day, 'yyyy-MM')
   }
 
   const monthGroups = useMemo(() => {
@@ -450,26 +452,28 @@ const weekGroups = useMemo(() => {
     const monday = new Date(day)
     monday.setDate(day.getDate() - (dayOfWeek - 1))
 
-    const mondayMonthKey = format(monday, 'yyyy-MM')
-
-    if (!weekCountByMonth[mondayMonthKey]) {
-      weekCountByMonth[mondayMonthKey] = 0
-    }
+    const weekKey = format(monday, 'yyyy-MM-dd')
+    const weekMonthKey = getWeekMonthKey(day)
 
     const last = groups[groups.length - 1]
-    const weekKey = format(monday, 'yyyy-MM-dd')
 
     if (last && last.key === weekKey) {
       last.count += 1
-    } else {
-      weekCountByMonth[mondayMonthKey] += 1
-
-      groups.push({
-        key: weekKey,
-        label: `${weekCountByMonth[mondayMonthKey]}w`,
-        count: 1,
-      })
+      return
     }
+
+    if (!weekCountByMonth[weekMonthKey]) {
+      weekCountByMonth[weekMonthKey] = 1
+    } else {
+      weekCountByMonth[weekMonthKey] += 1
+    }
+
+    groups.push({
+      key: weekKey,
+      monthKey: weekMonthKey,
+      label: `${weekCountByMonth[weekMonthKey]}w`,
+      count: 1,
+    })
   })
 
   return groups

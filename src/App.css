@@ -191,6 +191,7 @@ h1 {
   grid-template-columns: 65px minmax(150px, 1fr) 130px 110px 55px 25px;
   height: 30px;
   border-bottom: 1px solid #ddd;
+  box-sizing: border-box;
 }
 
 .info-panel.compact .task-row-fields {
@@ -298,6 +299,7 @@ h1 {
   display: flex;
   height: 30px;
   border-bottom: 1px solid #ddd;
+  box-sizing: border-box;
 }
 
 .day-cell.last-friday {
@@ -455,8 +457,14 @@ h1 {
 
 }
 
+.task-row-fields,
+.timeline-row,
+.project-cell {
+  box-sizing: border-box;
+}
 
-.task-row-fields.project-bottom-line,
-.timeline-row.project-bottom-line {
-  border-bottom: 3px solid #999;
+.project-group {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 2px solid #999;
 }

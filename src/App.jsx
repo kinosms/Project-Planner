@@ -588,7 +588,7 @@ const weekGroups = useMemo(() => {
             </div>
 
             {projects.map(project => (
-              <div className="project-group" key={project.id}>
+              <div className="project-group project-bottom-line" key={project.id}>
                 <div className="project-cell">
                   <input
                     className="table-input"

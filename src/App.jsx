@@ -478,7 +478,7 @@ const weekGroups = useMemo(() => {
 
               {!compactMode && (
                 <>
-                  <div>문서</div>
+                  <div>참조</div>
                   <div>담당자</div>
                 </>
               )}

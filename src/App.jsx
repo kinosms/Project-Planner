@@ -22,8 +22,13 @@ export default function App() {
   })
 
   const [compactMode, setCompactMode] = useState(false)
-  const [rangeStart, setRangeStart] = useState('2026-04-01')
-  const [rangeEnd, setRangeEnd] = useState('2026-07-31')
+  const [rangeStart, setRangeStart] = useState(() => {
+  return localStorage.getItem('projectPlannerRangeStart') || '2026-04-01'
+  })
+
+  const [rangeEnd, setRangeEnd] = useState(() => {
+    return localStorage.getItem('projectPlannerRangeEnd') || '2026-07-31'
+  })
   const [isPainting, setIsPainting] = useState(false)
   const [paintMode, setPaintMode] = useState(null)
   const [urlEditor, setUrlEditor] = useState(null)
@@ -458,9 +463,30 @@ const toggleScheduleLock = () => {
 
 
 
+const getWeekNumberInMonth = day => {
+  const monthStart = startOfMonth(day)
+  const monthStartDay = monthStart.getDay()
+
+  let firstWeekStart = new Date(monthStart)
+
+  // 1일이 월/화/수면 그 주가 1주차
+  if (monthStartDay >= 1 && monthStartDay <= 3) {
+    firstWeekStart.setDate(monthStart.getDate() - (monthStartDay - 1))
+  } else {
+    // 1일이 목/금/토/일이면 다음 월요일부터 1주차
+    const addDays = monthStartDay === 0 ? 1 : 8 - monthStartDay
+    firstWeekStart.setDate(monthStart.getDate() + addDays)
+  }
+
+  const diff =
+    (day.getTime() - firstWeekStart.getTime()) /
+    (1000 * 60 * 60 * 24)
+
+  return Math.floor(diff / 7) + 1
+}
+
 const weekGroups = useMemo(() => {
   const groups = []
-  const weekCountByMonth = {}
 
   days.forEach(day => {
     const dayOfWeek = day.getDay()
@@ -469,8 +495,6 @@ const weekGroups = useMemo(() => {
     monday.setDate(day.getDate() - (dayOfWeek - 1))
 
     const weekKey = format(monday, 'yyyy-MM-dd')
-    const weekMonthKey = getWeekMonthKey(day)
-
     const last = groups[groups.length - 1]
 
     if (last && last.key === weekKey) {
@@ -478,16 +502,11 @@ const weekGroups = useMemo(() => {
       return
     }
 
-    if (!weekCountByMonth[weekMonthKey]) {
-      weekCountByMonth[weekMonthKey] = 1
-    } else {
-      weekCountByMonth[weekMonthKey] += 1
-    }
+    const weekNumber = getWeekNumberInMonth(day)
 
     groups.push({
       key: weekKey,
-      monthKey: weekMonthKey,
-      label: `${weekCountByMonth[weekMonthKey]}w`,
+      label: `${weekNumber}w`,
       count: 1,
     })
   })
@@ -543,13 +562,19 @@ const weekGroups = useMemo(() => {
           <input
             type="date"
             value={rangeStart}
-            onChange={e => setRangeStart(e.target.value)}
+            onChange={e => {
+              setRangeStart(e.target.value)
+              localStorage.setItem('projectPlannerRangeStart', e.target.value)
+            }}
           />
 
           <input
             type="date"
             value={rangeEnd}
-            onChange={e => setRangeEnd(e.target.value)}
+            onChange={e => {
+              setRangeEnd(e.target.value)
+              localStorage.setItem('projectPlannerRangeEnd', e.target.value)
+            }}
           />
           <button onClick={toggleScheduleLock}>
             {scheduleLocked ? '🔒 일정잠금' : '🔓 편집중'}

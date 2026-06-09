@@ -314,6 +314,10 @@ h1 {
   cursor: crosshair;
 }
 
+.planner.locked .grid-cell {
+  cursor: not-allowed;
+}
+
 .grid-cell:hover {
   background: #eff6ff;
 }

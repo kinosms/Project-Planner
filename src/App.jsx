@@ -673,9 +673,10 @@ const weekGroups = useMemo(() => {
                           if (scheduleLocked) return
                           toggleDate(project.id, task.id, task, date)
                         }}
-                        onDoubleClick={() =>
+                        onDoubleClick={() => {
+                          if (scheduleLocked) return
                           toggleRedDate(project.id, task.id, date)
-                        }
+                        }}
                         onMouseEnter={() => {
                           if (scheduleLocked) return
                           paintOverDate(project.id, task.id, date)

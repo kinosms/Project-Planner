@@ -307,81 +307,44 @@ export default function App() {
   }
 
   const updateRange = (start, end) => {
-
-  setRangeStart(start)
-
-  setRangeEnd(end)
-
-  localStorage.setItem('projectPlannerRangeStart', start)
-
-  localStorage.setItem('projectPlannerRangeEnd', end)
-
-}
-
-const setRange = mode => {
-
-  if (mode === 'month') {
-
-    const start = startOfMonth(new Date())
-
-    const end = endOfMonth(new Date())
-
-    updateRange(
-
-      format(start, 'yyyy-MM-dd'),
-
-      format(end, 'yyyy-MM-dd')
-
-    )
-
+    setRangeStart(start)
+    setRangeEnd(end)
+    localStorage.setItem('projectPlannerRangeStart', start)
+    localStorage.setItem('projectPlannerRangeEnd', end)
   }
 
-  if (mode === '3months') {
+  const setRange = mode => {
+    if (mode === 'month') {
+      const start = startOfMonth(new Date())
+      const end = endOfMonth(new Date())
+      updateRange(
+        format(start, 'yyyy-MM-dd'),
+        format(end, 'yyyy-MM-dd')
+      )
+    }
 
-    const end = endOfMonth(new Date())
+    if (mode === '3months') {
+      const end = endOfMonth(new Date())
+      const start = startOfMonth(addMonths(end, -2))
+      updateRange(
+        format(start, 'yyyy-MM-dd'),
+        format(end, 'yyyy-MM-dd')
+      )
+    }
 
-    const start = startOfMonth(addMonths(end, -2))
-
-    updateRange(
-
-      format(start, 'yyyy-MM-dd'),
-
-      format(end, 'yyyy-MM-dd')
-
-    )
-
+    if (mode === '6months') {
+      const end = endOfMonth(new Date())
+      const start = startOfMonth(addMonths(end, -5))
+      updateRange(
+        format(start, 'yyyy-MM-dd'),
+        format(end, 'yyyy-MM-dd')
+      )
+    }
   }
-
-  if (mode === '6months') {
-
-    const end = endOfMonth(new Date())
-
-    const start = startOfMonth(addMonths(end, -5))
-
-    updateRange(
-
-      format(start, 'yyyy-MM-dd'),
-
-      format(end, 'yyyy-MM-dd')
-
-    )
-
-  }
-
-}
 
   const addOneMonth = () => {
     const nextEnd = endOfMonth(addMonths(new Date(rangeEnd), 1))
     setRangeEnd(format(nextEnd, 'yyyy-MM-dd'))
-  }
-
-  const goToday = () => {
-    const today = new Date()
-    const start = startOfMonth(today)
-    const end = endOfMonth(today)
-
-    setRangeStart(format(start, 'yyyy-MM-dd'))
-    setRangeEnd(format(end, 'yyyy-MM-dd'))
   }
 
 const toggleScheduleLock = () => {
@@ -597,7 +560,6 @@ const weekGroups = useMemo(() => {
             {compactMode ? '전체형' : '축소형'}
           </button>
 
-          <button onClick={goToday}>오늘</button>
           <button onClick={() => setRange('month')}>이번달</button>
           <button onClick={() => setRange('3months')}>최근3개월</button>
           <button onClick={() => setRange('6months')}>최근6개월</button>

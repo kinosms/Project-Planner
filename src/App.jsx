@@ -469,22 +469,23 @@ const weekGroups = useMemo(() => {
       <div className="planner">
         <div className="planner-inner">
           <div className={compactMode ? 'info-panel compact' : 'info-panel'}>
-            <div className="table-title">AI OPERATION</div>
+            <div className="info-sticky-header">
+              <div className="table-title">AI OPERATION</div>
+              <div className="info-header">
+                <div>프로젝트</div>
+                <div>업무</div>
+                <div>상세내용</div>
 
-            <div className="info-header">
-              <div>프로젝트</div>
-              <div>업무</div>
-              <div>상세내용</div>
+                {!compactMode && (
+                  <>
+                    <div>참조</div>
+                    <div>담당자</div>
+                  </>
+                )}
 
-              {!compactMode && (
-                <>
-                  <div>참조</div>
-                  <div>담당자</div>
-                </>
-              )}
-
-              <div>상태</div>
-              <div></div>
+                <div>상태</div>
+                <div></div>
+              </div>
             </div>
 
             {projects.map(project => (

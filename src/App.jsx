@@ -58,19 +58,25 @@ export default function App() {
     localStorage.setItem('projectPlannerProjects', JSON.stringify(next))
   }
 
-  const moveNextCell = e => {
-    if (e.key !== 'Enter') return
+  const moveNextCell = (e, projectId) => {
+    if (e.key !== 'Enter' && e.key !== 'Tab') return
     if (e.nativeEvent.isComposing) return
-    e.preventDefault()
-    e.stopPropagation()
-    e.preventDefault()
     const inputs = Array.from(document.querySelectorAll('.table-input'))
-    const currentIndex = inputs.indexOf(e.target)
+    const currentIndex = inputs.indexOf(e.currentTarget)
     const nextInput = inputs[currentIndex + 1]
     if (nextInput) {
-      nextInput.focus()
-      nextInput.select()
-    } 
+      return
+    }
+    e.preventDefault()
+    addTaskToProject(projectId)
+    setTimeout(() => {
+      const nextInputs = Array.from(document.querySelectorAll('.table-input'))
+      const target = nextInputs[currentIndex + 1]
+      if (target) {
+        target.focus()
+        target.select()
+      }
+    }, 0)
   }
 
   const addProject = () => {
@@ -461,7 +467,7 @@ const weekGroups = useMemo(() => {
                     className="table-input"
                     value={project.name}
                     onChange={e => updateProjectName(project.id, e.target.value)}
-                    onKeyDown={moveNextCell}
+                    onKeyDown={e => moveNextCell(e, project.id)}
                   />
 
                   <button
@@ -478,7 +484,7 @@ const weekGroups = useMemo(() => {
                     <div className="task-row-fields" key={task.id}>
                       <input
                         className="table-input"
-                        onKeyDown={moveNextCell}
+                        onKeyDown={e => moveNextCell(e, project.id)}
                         value={task.work}
                         onChange={e =>
                           updateTask(project.id, task.id, 'work', e.target.value)
@@ -487,7 +493,7 @@ const weekGroups = useMemo(() => {
 
                       <input
                         className="table-input"
-                        onKeyDown={moveNextCell}
+                        onKeyDown={e => moveNextCell(e, project.id)}
                         value={task.title}
                         onChange={e =>
                           updateTask(project.id, task.id, 'title', e.target.value)
@@ -499,7 +505,7 @@ const weekGroups = useMemo(() => {
                           <div className="doc-cell">
                             <input
                               className="table-input"
-                              onKeyDown={moveNextCell}
+                              onKeyDown={e => moveNextCell(e, project.id)}
                               value={task.artifactName}
                               onChange={e =>
                                 updateTask(
@@ -533,7 +539,7 @@ const weekGroups = useMemo(() => {
                           <input
                             className="table-input"
                             list="owner-suggestions"
-                            onKeyDown={moveNextCell}
+                            onKeyDown={e => moveNextCell(e, project.id)}
                             value={task.owner}
                             onChange={e =>
                               updateTask(

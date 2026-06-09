@@ -607,8 +607,17 @@ const weekGroups = useMemo(() => {
                 </div>
 
                 <div className="project-task-list">
-                  {project.tasks.map(task => (
-                    <div className="task-row-fields" key={task.id}>
+                  {project.tasks.map((task, taskIndex) => {
+                    const isLastTaskInProject = taskIndex === project.tasks.length - 1
+                    return (
+                      <div
+                        className={[
+                          'task-row-fields',
+                          isLastTaskInProject ? 'project-bottom-line' : '',
+                        ].join(' ')}
+                        key={task.id}
+
+                      >
                       <input
                         className="table-input"
                         onKeyDown={e => moveNextCell(e, project.id)}
@@ -697,7 +706,8 @@ const weekGroups = useMemo(() => {
                         x
                       </button>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}
@@ -751,8 +761,16 @@ const weekGroups = useMemo(() => {
             </div>
 
             {projects.map(project =>
-              project.tasks.map(task => (
-                <div className="timeline-row" key={`${project.id}-${task.id}`}>
+              project.tasks.map((task, taskIndex) => {
+                const isLastTaskInProject = taskIndex === project.tasks.length - 1
+                return (
+                  <div
+                    className={[
+                      'timeline-row',
+                      isLastTaskInProject ? 'project-bottom-line' : '',
+                    ].join(' ')}
+                    key={`${project.id}-${task.id}`}
+                  >
                   {days.map(day => {
                     const date = format(day, 'yyyy-MM-dd')
                     const selected = isDateSelected(task, date)
@@ -784,7 +802,8 @@ const weekGroups = useMemo(() => {
                     )
                   })}
                 </div>
-              ))
+              )
+            })
             )}
           </div>
         </div>

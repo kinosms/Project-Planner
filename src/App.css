@@ -454,3 +454,9 @@ h1 {
   background: #dc2626;
 
 }
+
+
+.task-row-fields.project-bottom-line,
+.timeline-row.project-bottom-line {
+  border-bottom: 3px solid #999;
+}

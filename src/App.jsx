@@ -1,3 +1,4 @@
+import { supabase } from './supabase'
 import { useMemo, useState } from 'react'
 import {
   addMonths,
@@ -8,6 +9,7 @@ import {
   isFriday,
   subDays,
 } from 'date-fns'
+
 import './App.css'
 
 export default function App() {
@@ -26,6 +28,29 @@ export default function App() {
   const [paintMode, setPaintMode] = useState(null)
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
+
+  const testDB = async () => {
+
+    const { data, error } = await supabase
+
+      .from('projects')
+
+      .insert({
+
+        name: '테스트 프로젝트',
+
+      })
+
+      .select()
+
+    console.log('data=', data)
+
+    console.log('error=', error)
+
+  }
+
+
+
 
   const days = useMemo(() => {
     return eachDayOfInterval({
@@ -439,6 +464,9 @@ const weekGroups = useMemo(() => {
           <button onClick={() => setRange('3months')}>3개월</button>
           <button onClick={() => setRange('6months')}>6개월</button>
           <button onClick={addOneMonth}>+1개월</button>
+          <button onClick={testDB}>
+            DB테스트 
+          </button>
 
           <input
             type="date"

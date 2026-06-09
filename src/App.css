@@ -108,6 +108,7 @@ h1 {
 
 .table-title {
   height: 30px;
+  box-sizing: border-box;
   background: #d9d9d9;
   border-bottom: 1px solid #999;
   display: flex;
@@ -119,7 +120,8 @@ h1 {
 .info-header {
   display: grid;
   grid-template-columns: 100px 65px minmax(150px, 1fr) 130px 110px 55px 25px;
-  height: 29px;
+  height: 30px;
+  box-sizing: border-box;
   background: #eee;
   border-bottom: 1px solid #aaa;
   font-size: 11px;

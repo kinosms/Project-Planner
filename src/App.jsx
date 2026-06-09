@@ -638,7 +638,13 @@ const weekGroups = useMemo(() => {
 
                       {!compactMode && (
                         <>
-                          <div className="doc-cell">
+                          <div
+                            className={
+                              task.artifactUrl
+                                ? 'doc-cell linked'
+                                : 'doc-cell'
+                            }
+                          >
                             <input
                               className="table-input"
                               onKeyDown={e => moveNextCell(e, project.id)}
@@ -813,28 +819,29 @@ const weekGroups = useMemo(() => {
         <div className="modal-backdrop">
           <div className="url-modal">
             <h3>문서 URL 입력</h3>
+            <div className="url-input-row">
+              <input
+                value={urlEditor.url}
+                onChange={e =>
+                  setUrlEditor({
+                    ...urlEditor,
+                    url: e.target.value,
+                  })
+                }
+                placeholder="https://..."
+                autoFocus
+              />
 
-            <input
-              value={urlEditor.url}
-              onChange={e =>
-                setUrlEditor({
-                  ...urlEditor,
-                  url: e.target.value,
-                })
-              }
-              placeholder="https://..."
-              autoFocus
-            />
-
-            <button
-              className="open-url-btn"
-              onClick={() => {
-                if (!urlEditor?.url) return
-                window.open(urlEditor.url, '_blank')
-              }}
-            >
-              ↗
-            </button>
+              <button
+                className="open-url-btn"
+                onClick={() => {
+                  if (!urlEditor?.url) return
+                  window.open(urlEditor.url, '_blank')
+                }}
+              >
+                ↗
+              </button>
+            </div>
 
             <div className="modal-actions">
               <button

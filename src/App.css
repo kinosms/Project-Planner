@@ -252,6 +252,23 @@ h1 {
   font-weight: 700;
 }
 
+.url-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.url-input-row input {
+  flex: 1;
+}
+
+.open-url-btn {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
 .timeline-header {
   height: 60px;
   background: #fafafa;

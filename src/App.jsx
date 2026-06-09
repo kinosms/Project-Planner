@@ -316,13 +316,13 @@ export default function App() {
 
     if (mode === '3months') {
       const start = startOfMonth(new Date(rangeStart))
-      const end = endOfMonth(addMonths(start, 2))
+      const end = endOfMonth(addMonths(start, -2))
       setRangeEnd(format(end, 'yyyy-MM-dd'))
     }
 
     if (mode === '6months') {
       const start = startOfMonth(new Date(rangeStart))
-      const end = endOfMonth(addMonths(start, 5))
+      const end = endOfMonth(addMonths(start, -5))
       setRangeEnd(format(end, 'yyyy-MM-dd'))
     }
   }
@@ -556,8 +556,8 @@ const weekGroups = useMemo(() => {
 
           <button onClick={goToday}>오늘</button>
           <button onClick={() => setRange('month')}>이번달</button>
-          <button onClick={() => setRange('3months')}>3개월</button>
-          <button onClick={() => setRange('6months')}>6개월</button>
+          <button onClick={() => setRange('3months')}>최근3개월</button>
+          <button onClick={() => setRange('6months')}>최근6개월</button>
           <button onClick={addOneMonth}>+1개월</button>
           <input
             type="date"

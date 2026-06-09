@@ -22,14 +22,14 @@ body {
 }
 
 .topbar {
-  height: 92px;
+  height: 58px;
   margin-bottom: 10px;
 }
 
 h1 {
   margin: 0 0 8px;
   text-align: center;
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .toolbar {
@@ -47,6 +47,17 @@ h1 {
   border: 1px solid #aaa;
   background: white;
   cursor: pointer;
+}
+
+.toolbar button,
+.toolbar input[type="date"] {
+  height: 28px;
+  box-sizing: border-box;
+}
+
+.toolbar input[type="date"] {
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .stats {
@@ -104,7 +115,7 @@ h1 {
 .info-header {
   display: grid;
   grid-template-columns: 100px 65px minmax(150px, 1fr) 130px 110px 55px 25px;
-  height: 30px;
+  height: 29px;
   background: #eee;
   border-bottom: 1px solid #aaa;
   font-size: 11px;
@@ -221,44 +232,52 @@ h1 {
   height: 60px;
   background: #fafafa;
   border-bottom: 1px solid #999;
+  box-sizing: border-box;
 }
 
 .month-row,
+.week-row,
 .date-row {
   display: flex;
+  height: 20px;
+  box-sizing: border-box;
 }
 
-.month-row {
-  height: 30px;
-  border-bottom: 1px solid #aaa;
+.month-cell,
+.week-cell,
+.day-cell {
+  min-width: 32px;
+  height: 20px;
+  box-sizing: border-box;
+  border-right: 1px solid #9a9a9a;
+  border-bottom: 1px solid #9a9a9a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  user-select: none;
 }
 
 .month-cell {
-  height: 30px;
-  border-right: 1px solid #999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  box-sizing: border-box;
   background: #f3f4f6;
+  font-weight: 600;
 }
 
-.date-row {
-  height: 30px;
+.week-cell {
+  background: #fafafa;
+  font-weight: 500;
 }
 
 .day-cell {
-  min-width: 32px;
-  height: 30px;
-  border-right: 1px solid #ddd;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 0;
-  box-sizing: border-box;
-  font-size: 10px;
-  user-select: none;
+  background: #ffffff;
+  font-weight: 400;
+}
+
+.day-cell.today {
+  background: #fff3bf;
+  color: #d00000;
+  font-weight: 700;
 }
 
 .timeline-row {
@@ -267,18 +286,18 @@ h1 {
   border-bottom: 1px solid #ddd;
 }
 
+.day-cell.last-friday {
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 700;
+}
+
 .grid-cell {
   min-width: 32px;
   height: 30px;
   border-right: 1px solid #d6d6d6;
   box-sizing: border-box;
   cursor: crosshair;
-}
-
-.day-cell.today {
-  background: #fff3bf;
-  color: #d00000;
-  font-weight: bold;
 }
 
 .grid-cell:hover {
@@ -396,4 +415,12 @@ h1 {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.grid-cell.last-friday-line {
+  background: #fff1f2;
+}
+
+.grid-cell.selected.last-friday-line {
+  background: #3b82f6;
 }

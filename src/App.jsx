@@ -5,84 +5,18 @@ import {
   endOfMonth,
   format,
   startOfMonth,
+  isFriday,
+  subDays,
 } from 'date-fns'
 import './App.css'
-
-const initialProjects = [
-  {
-    id: 1,
-    name: '운영 페이지',
-    tasks: [
-      {
-        id: 101,
-        work: '기획',
-        title: '화면 기획서 1차',
-        owner: 'geronimo.sung',
-        status: '진행',
-        artifactName: '화면설계서',
-        artifactUrl: 'https://example.com',
-        dates: ['2026-04-06', '2026-04-07', '2026-04-08', '2026-04-09'],
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: '디지털카드',
-    tasks: [
-      {
-        id: 201,
-        work: '개발',
-        title: '백엔드 개발',
-        owner: 'alex.jang',
-        status: '진행',
-        artifactName: '디자인시안',
-        artifactUrl: '',
-        dates: ['2026-04-10', '2026-04-11', '2026-04-12'],
-      },
-    ],
-  },
-]
 
 export default function App() {
   const [projects, setProjects] = useState(() => {
     const savedProjects = localStorage.getItem('projectPlannerProjects')
-    if (savedProjects) return JSON.parse(savedProjects)
-
-    const oldTasks = localStorage.getItem('projectPlannerTasks')
-    if (oldTasks) {
-      const parsedTasks = JSON.parse(oldTasks)
-      const grouped = parsedTasks.reduce((acc, task) => {
-        const projectName = task.project || '프로젝트'
-        const found = acc.find(p => p.name === projectName)
-
-        const convertedTask = {
-          id: task.id || Date.now(),
-          work: task.work || '',
-          title: task.title || '',
-          owner: task.owner || '',
-          status: task.status || '대기',
-          artifactName: task.artifactName || '',
-          artifactUrl: task.artifactUrl || '',
-          dates: task.dates || [],
-        }
-
-        if (found) {
-          found.tasks.push(convertedTask)
-        } else {
-          acc.push({
-            id: Date.now() + acc.length,
-            name: projectName,
-            tasks: [convertedTask],
-          })
-        }
-
-        return acc
-      }, [])
-
-      return grouped
+    if (savedProjects) {
+      return JSON.parse(savedProjects)
     }
-
-    return initialProjects
+    return []
   })
 
   const [compactMode, setCompactMode] = useState(false)
@@ -91,11 +25,15 @@ export default function App() {
   const [isPainting, setIsPainting] = useState(false)
   const [paintMode, setPaintMode] = useState(null)
   const [urlEditor, setUrlEditor] = useState(null)
+  const [scheduleLocked, setScheduleLocked] = useState(true)
 
   const days = useMemo(() => {
     return eachDayOfInterval({
       start: new Date(rangeStart),
       end: new Date(rangeEnd),
+    }).filter(day => {
+      const dayOfWeek = day.getDay()
+      return dayOfWeek !== 0 && dayOfWeek !== 6
     })
   }, [rangeStart, rangeEnd])
 
@@ -107,9 +45,32 @@ export default function App() {
     }))
   )
 
+  const ownerSuggestions = [
+    ...new Set(
+      flatTasks
+        .map(task => task.owner)
+        .filter(owner => owner && owner.trim())
+    ),
+  ]
+
   const saveProjects = next => {
     setProjects(next)
     localStorage.setItem('projectPlannerProjects', JSON.stringify(next))
+  }
+
+  const moveNextCell = e => {
+    if (e.key !== 'Enter') return
+    if (e.nativeEvent.isComposing) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.preventDefault()
+    const inputs = Array.from(document.querySelectorAll('.table-input'))
+    const currentIndex = inputs.indexOf(e.target)
+    const nextInput = inputs[currentIndex + 1]
+    if (nextInput) {
+      nextInput.focus()
+      nextInput.select()
+    } 
   }
 
   const addProject = () => {
@@ -317,6 +278,30 @@ export default function App() {
     setPaintMode(null)
   }
 
+  const getFirstWeekStartOfMonth = date => {
+    const monthStart = startOfMonth(date)
+    const day = monthStart.getDay()
+
+    // 일요일이면 다음 월요일
+    if (day === 0) {
+      const nextMonday = new Date(monthStart)
+      nextMonday.setDate(monthStart.getDate() + 1)
+      return nextMonday
+    }
+
+    // 월/화/수면 그 주를 1주차로 인정
+    if (day >= 1 && day <= 3) {
+      const monday = new Date(monthStart)
+      monday.setDate(monthStart.getDate() - (day - 1))
+      return monday
+    }
+
+    // 목/금/토면 다음 월요일부터 1주차
+    const nextMonday = new Date(monthStart)
+    nextMonday.setDate(monthStart.getDate() + (8 - day))
+    return nextMonday
+  }
+
   const monthGroups = useMemo(() => {
     const groups = []
 
@@ -339,7 +324,59 @@ export default function App() {
     return groups
   }, [days])
 
+
+
+const weekGroups = useMemo(() => {
+  const groups = []
+  const weekCountByMonth = {}
+
+  days.forEach(day => {
+    const dayOfWeek = day.getDay()
+
+    const monday = new Date(day)
+    monday.setDate(day.getDate() - (dayOfWeek - 1))
+
+    const mondayMonthKey = format(monday, 'yyyy-MM')
+
+    if (!weekCountByMonth[mondayMonthKey]) {
+      weekCountByMonth[mondayMonthKey] = 0
+    }
+
+    const last = groups[groups.length - 1]
+    const weekKey = format(monday, 'yyyy-MM-dd')
+
+    if (last && last.key === weekKey) {
+      last.count += 1
+    } else {
+      weekCountByMonth[mondayMonthKey] += 1
+
+      groups.push({
+        key: weekKey,
+        label: `${weekCountByMonth[mondayMonthKey]}w`,
+        count: 1,
+      })
+    }
+  })
+
+  return groups
+}, [days])
+
+
+
+
+
+
+
   const todayString = format(new Date(), 'yyyy-MM-dd')
+  const isLastFridayOfMonth = day => {
+    if (!isFriday(day)) return false
+    const monthEnd = endOfMonth(day)
+    let cursor = monthEnd
+    while (cursor.getDay() !== 5) {
+      cursor = subDays(cursor, 1)
+    }
+    return format(cursor, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
+  }
 
   const total = flatTasks.length
   const done = flatTasks.filter(task => task.status === '완료').length
@@ -348,6 +385,12 @@ export default function App() {
 
   return (
     <div className="app" onMouseUp={endPaint}>
+      <datalist id="owner-suggestions">
+        {ownerSuggestions.map(owner => (
+          <option key={owner} value={owner} />
+        ))}
+      </datalist>
+
       <header className="topbar">
         <h1>Project Planner</h1>
 
@@ -375,6 +418,11 @@ export default function App() {
             value={rangeEnd}
             onChange={e => setRangeEnd(e.target.value)}
           />
+          <button
+            onClick={() => setScheduleLocked(v => !v)}
+          >
+            {scheduleLocked ? '🔒 일정잠금' : '🔓 편집중'}
+          </button>
 
           <div className="stats">
             <span>전체 {total}</span>
@@ -410,9 +458,10 @@ export default function App() {
               <div className="project-group" key={project.id}>
                 <div className="project-cell">
                   <input
+                    className="table-input"
                     value={project.name}
                     onChange={e => updateProjectName(project.id, e.target.value)}
-                    placeholder="프로젝트"
+                    onKeyDown={moveNextCell}
                   />
 
                   <button
@@ -428,25 +477,29 @@ export default function App() {
                   {project.tasks.map(task => (
                     <div className="task-row-fields" key={task.id}>
                       <input
+                        className="table-input"
+                        onKeyDown={moveNextCell}
                         value={task.work}
                         onChange={e =>
                           updateTask(project.id, task.id, 'work', e.target.value)
                         }
-                        placeholder="업무"
                       />
 
                       <input
+                        className="table-input"
+                        onKeyDown={moveNextCell}
                         value={task.title}
                         onChange={e =>
                           updateTask(project.id, task.id, 'title', e.target.value)
                         }
-                        placeholder="상세내용"
                       />
 
                       {!compactMode && (
                         <>
                           <div className="doc-cell">
                             <input
+                              className="table-input"
+                              onKeyDown={moveNextCell}
                               value={task.artifactName}
                               onChange={e =>
                                 updateTask(
@@ -456,7 +509,6 @@ export default function App() {
                                   e.target.value
                                 )
                               }
-                              placeholder="문서명"
                             />
 
                             <button
@@ -479,6 +531,9 @@ export default function App() {
                           </div>
 
                           <input
+                            className="table-input"
+                            list="owner-suggestions"
+                            onKeyDown={moveNextCell}
                             value={task.owner}
                             onChange={e =>
                               updateTask(
@@ -488,7 +543,6 @@ export default function App() {
                                 e.target.value
                               )
                             }
-                            placeholder="담당자"
                           />
                         </>
                       )}
@@ -530,6 +584,18 @@ export default function App() {
                 ))}
               </div>
 
+              <div className="week-row">
+                {weekGroups.map(week => (
+                  <div
+                    className="week-cell"
+                    key={week.key}
+                    style={{ width: `${week.count * 32}px` }}
+                  >
+                    {week.label}
+                  </div>
+                ))}
+              </div>
+
               <div className="date-row">
                 {days.map(day => {
                   const dateString = format(day, 'yyyy-MM-dd')
@@ -537,7 +603,11 @@ export default function App() {
 
                   return (
                     <div
-                      className={isToday ? 'day-cell today' : 'day-cell'}
+                      className={[
+                        'day-cell',
+                        isToday ? 'today' : '',
+                        isLastFridayOfMonth(day) ? 'last-friday' : '',
+                      ].join(' ')}
                       key={day.toISOString()}
                     >
                       {format(day, 'd')}
@@ -561,13 +631,16 @@ export default function App() {
                           'grid-cell',
                           selected ? 'selected' : '',
                           date === todayString ? 'today-line' : '',
+                          isLastFridayOfMonth(day) ? 'last-friday-line' : '',
                         ].join(' ')}
-                        onMouseDown={() =>
+                        onMouseDown={() => {
+                          if (scheduleLocked) return
                           toggleDate(project.id, task.id, task, date)
-                        }
-                        onMouseEnter={() =>
+                        }}
+                        onMouseEnter={() => {
+                          if (scheduleLocked) return
                           paintOverDate(project.id, task.id, date)
-                        }
+                        }}
                       />
                     )
                   })}

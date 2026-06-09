@@ -336,6 +336,22 @@ export default function App() {
     setRangeEnd(format(end, 'yyyy-MM-dd'))
   }
 
+const toggleScheduleLock = () => {
+  if (!scheduleLocked) {
+    setScheduleLocked(true)
+    return
+  }
+
+  const password = prompt('짐승거인과 관계된 운동은')
+  if (password === '야구') {
+    setScheduleLocked(false)
+  } else {
+    alert('비밀번호가 맞지 않아')
+  }
+}
+
+
+
   const isDateSelected = (task, date) => {
     return task.dates?.includes(date) || false
   }
@@ -535,9 +551,7 @@ const weekGroups = useMemo(() => {
             value={rangeEnd}
             onChange={e => setRangeEnd(e.target.value)}
           />
-          <button
-            onClick={() => setScheduleLocked(v => !v)}
-          >
+          <button onClick={toggleScheduleLock}>
             {scheduleLocked ? '🔒 일정잠금' : '🔓 편집중'}
           </button>
           <button onClick={saveAllToDB}>저장</button>

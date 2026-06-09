@@ -826,6 +826,16 @@ const weekGroups = useMemo(() => {
               autoFocus
             />
 
+            <button
+              className="open-url-btn"
+              onClick={() => {
+                if (!urlEditor?.url) return
+                window.open(urlEditor.url, '_blank')
+              }}
+            >
+              ↗
+            </button>
+
             <div className="modal-actions">
               <button
                 onClick={() => {

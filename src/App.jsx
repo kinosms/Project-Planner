@@ -29,28 +29,6 @@ export default function App() {
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
 
-  const testDB = async () => {
-
-    const { data, error } = await supabase
-
-      .from('projects')
-
-      .insert({
-
-        name: '테스트 프로젝트',
-
-      })
-
-      .select()
-
-    console.log('data=', data)
-
-    console.log('error=', error)
-
-  }
-
-
-
 
   const days = useMemo(() => {
     return eachDayOfInterval({
@@ -82,6 +60,84 @@ export default function App() {
     setProjects(next)
     localStorage.setItem('projectPlannerProjects', JSON.stringify(next))
   }
+
+
+  const saveAllToDB = async () => {
+    if (!confirm('현재 화면 데이터를 DB에 저장할까?')) return
+
+    const { error: deleteError } = await supabase
+      .from('projects')
+      .delete()
+      .neq('id', 0)
+
+    if (deleteError) {
+      console.log('delete error=', deleteError)
+      alert('기존 데이터 삭제 실패')
+      return
+    }
+
+    for (const project of projects) {
+      const { data: insertedProjects, error: projectError } = await supabase
+        .from('projects')
+        .insert({ name: project.name || '' })
+        .select()
+
+      if (projectError) {
+        console.log('project error=', projectError)
+        alert('프로젝트 저장 실패')
+        return
+      }
+
+      const insertedProject = insertedProjects[0]
+
+      for (const task of project.tasks) {
+        const { data: insertedTasks, error: taskError } = await supabase
+          .from('tasks')
+          .insert({
+            project_id: insertedProject.id,
+            work: task.work || '',
+            title: task.title || '',
+            owner: task.owner || '',
+            status: task.status || '대기',
+            artifact_name: task.artifactName || '',
+            artifact_url: task.artifactUrl || '',
+          })
+          .select()
+
+        if (taskError) {
+          console.log('task error=', taskError)
+          alert('업무 저장 실패')
+          return
+        }
+
+        const insertedTask = insertedTasks[0]
+
+        if (task.dates?.length) {
+          const rows = task.dates.map(date => ({
+            task_id: insertedTask.id,
+            work_date: date,
+            color: 'blue',
+          }))
+
+          const { error: dateError } = await supabase
+            .from('task_dates')
+            .insert(rows)
+
+          if (dateError) {
+            console.log('date error=', dateError)
+            alert('일정 저장 실패')
+            return
+          }
+        }
+      }
+    }
+
+    alert('DB 저장 완료')
+  }
+
+
+
+
 
   const moveNextCell = (e, projectId) => {
     if (e.key !== 'Enter' && e.key !== 'Tab') return
@@ -464,10 +520,6 @@ const weekGroups = useMemo(() => {
           <button onClick={() => setRange('3months')}>3개월</button>
           <button onClick={() => setRange('6months')}>6개월</button>
           <button onClick={addOneMonth}>+1개월</button>
-          <button onClick={testDB}>
-            DB테스트 
-          </button>
-
           <input
             type="date"
             value={rangeStart}
@@ -484,6 +536,7 @@ const weekGroups = useMemo(() => {
           >
             {scheduleLocked ? '🔒 일정잠금' : '🔓 편집중'}
           </button>
+          <button onClick={saveAllToDB}>저장</button>
 
           <div className="stats">
             <span>전체 {total}</span>

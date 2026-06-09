@@ -97,10 +97,37 @@ export default function App() {
             artifactName: '',
             artifactUrl: '',
             dates: [],
+            redDates: [],
           },
         ],
       },
     ])
+  }
+
+  const toggleRedDate = (projectId, taskId, date) => {
+    saveProjects(
+      projects.map(project =>
+        project.id === projectId
+          ? {
+              ...project,
+              tasks: project.tasks.map(task => {
+                if (task.id !== taskId) return task
+                const redDates = task.redDates || []
+                return {
+                  ...task,
+                  redDates: redDates.includes(date)
+                    ? redDates.filter(d => d !== date)
+                    : [...redDates, date],
+                }
+              }),
+            }
+          : project
+      )
+    )
+  }
+
+  const isRedDateSelected = (task, date) => {
+    return task.redDates?.includes(date)
   }
 
   const addTaskToProject = projectId => {
@@ -629,6 +656,7 @@ const weekGroups = useMemo(() => {
                   {days.map(day => {
                     const date = format(day, 'yyyy-MM-dd')
                     const selected = isDateSelected(task, date)
+                    const redSelected = isRedDateSelected(task, date)
 
                     return (
                       <div
@@ -636,6 +664,7 @@ const weekGroups = useMemo(() => {
                         className={[
                           'grid-cell',
                           selected ? 'selected' : '',
+                          redSelected ? 'red-selected' : '',
                           date === todayString ? 'today-line' : '',
                           isLastFridayOfMonth(day) ? 'last-friday-line' : '',
                         ].join(' ')}
@@ -643,6 +672,9 @@ const weekGroups = useMemo(() => {
                           if (scheduleLocked) return
                           toggleDate(project.id, task.id, task, date)
                         }}
+                        onDoubleClick={() =>
+                          toggleRedDate(project.id, task.id, date)
+                        }
                         onMouseEnter={() => {
                           if (scheduleLocked) return
                           paintOverDate(project.id, task.id, date)

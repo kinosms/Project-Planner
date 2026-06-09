@@ -424,3 +424,15 @@ h1 {
 .grid-cell.selected.last-friday-line {
   background: #3b82f6;
 }
+
+.red-selected {
+
+  background: #ef4444;
+
+}
+
+.red-selected:hover {
+
+  background: #dc2626;
+
+}

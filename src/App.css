@@ -355,6 +355,12 @@ h1 {
 
 .grid-cell.selected {
   background: #3b82f6;
+  border-right: 1px solid #d6d6d6;
+  border-bottom: 1px solid #d6d6d6;
+}
+
+.timeline-row.project-bottom-line .grid-cell.selected {
+  border-bottom: 2px solid #999;
 }
 
 .grid-cell.selected:hover {

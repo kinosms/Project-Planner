@@ -466,5 +466,20 @@ h1 {
 .project-group {
   display: flex;
   align-items: stretch;
+}
+
+.project-cell.project-bottom-line {
+  border-bottom: 2px solid #999 !important;
+}
+
+.task-row-fields.project-bottom-line {
+  border-bottom: 2px solid #999 !important;
+}
+
+.timeline-row.project-bottom-line {
+  border-bottom: 0;
+}
+
+.timeline-row.project-bottom-line .grid-cell {
   border-bottom: 2px solid #999;
 }

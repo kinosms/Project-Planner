@@ -133,6 +133,9 @@ h1 {
 
 .info-panel.compact .info-header {
   grid-template-columns: 100px 65px minmax(150px, 1fr) 55px 25px;
+  position: sticky;
+  top: 0;
+  z-index: 25;
 }
 
 .info-header div {
@@ -140,6 +143,9 @@ h1 {
   align-items: center;
   justify-content: center;
   border-right: 1px solid #ccc;
+  position: sticky;
+  top: 0;
+  z-index: 25;
 }
 .project-group {
   display: flex;

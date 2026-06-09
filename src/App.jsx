@@ -306,26 +306,69 @@ export default function App() {
     )
   }
 
-  const setRange = mode => {
-    if (mode === 'month') {
-      const start = startOfMonth(new Date())
-      const end = endOfMonth(new Date())
-      setRangeStart(format(start, 'yyyy-MM-dd'))
-      setRangeEnd(format(end, 'yyyy-MM-dd'))
-    }
+  const updateRange = (start, end) => {
 
-    if (mode === '3months') {
-      const start = startOfMonth(new Date(rangeStart))
-      const end = endOfMonth(addMonths(start, -2))
-      setRangeEnd(format(end, 'yyyy-MM-dd'))
-    }
+  setRangeStart(start)
 
-    if (mode === '6months') {
-      const start = startOfMonth(new Date(rangeStart))
-      const end = endOfMonth(addMonths(start, -5))
-      setRangeEnd(format(end, 'yyyy-MM-dd'))
-    }
+  setRangeEnd(end)
+
+  localStorage.setItem('projectPlannerRangeStart', start)
+
+  localStorage.setItem('projectPlannerRangeEnd', end)
+
+}
+
+const setRange = mode => {
+
+  if (mode === 'month') {
+
+    const start = startOfMonth(new Date())
+
+    const end = endOfMonth(new Date())
+
+    updateRange(
+
+      format(start, 'yyyy-MM-dd'),
+
+      format(end, 'yyyy-MM-dd')
+
+    )
+
   }
+
+  if (mode === '3months') {
+
+    const end = endOfMonth(new Date())
+
+    const start = startOfMonth(addMonths(end, -2))
+
+    updateRange(
+
+      format(start, 'yyyy-MM-dd'),
+
+      format(end, 'yyyy-MM-dd')
+
+    )
+
+  }
+
+  if (mode === '6months') {
+
+    const end = endOfMonth(new Date())
+
+    const start = startOfMonth(addMonths(end, -5))
+
+    updateRange(
+
+      format(start, 'yyyy-MM-dd'),
+
+      format(end, 'yyyy-MM-dd')
+
+    )
+
+  }
+
+}
 
   const addOneMonth = () => {
     const nextEnd = endOfMonth(addMonths(new Date(rangeEnd), 1))

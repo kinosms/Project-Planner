@@ -97,13 +97,13 @@ h1 {
   z-index: 30;
   background: white;
   border-right: 2px solid #777;
-  width: 635px;
-  min-width: 635px;
+  width: 655px;
+  min-width: 655px;
 }
 
 .info-panel.compact {
-  width: 395px;
-  min-width: 395px;
+  width: 415px;
+  min-width: 415px;
 }
 
 .table-title {
@@ -119,7 +119,7 @@ h1 {
 
 .info-header {
   display: grid;
-  grid-template-columns: 100px 55px minmax(200px, 1fr) 130px 110px 55px 25px;
+  grid-template-columns: 100px 55px minmax(180px, 1fr) 130px 110px 55px 25px;
   height: 30px;
   box-sizing: border-box;
   background: #eee;
@@ -135,7 +135,7 @@ h1 {
 }
 
 .info-panel.compact .info-header {
-  grid-template-columns: 100px 55px minmax(200px, 1fr) 55px 25px;
+  grid-template-columns: 100px 55px minmax(180px, 1fr) 55px 25px;
 }
 
 .info-header div {
@@ -190,14 +190,14 @@ h1 {
 
 .task-row-fields {
   display: grid;
-  grid-template-columns: 55px minmax(200px, 1fr) 130px 110px 55px 25px;
+  grid-template-columns: 55px minmax(180px, 1fr) 130px 110px 55px 25px;
   height: 30px;
   border-bottom: 1px solid #ddd;
   box-sizing: border-box;
 }
 
 .info-panel.compact .task-row-fields {
-  grid-template-columns: 55px minmax(200px, 1fr) 55px 25px;
+  grid-template-columns: 55px minmax(180px, 1fr) 55px 25px;
 }
 
 .task-row-fields input {

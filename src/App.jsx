@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   addMonths,
   eachDayOfInterval,
@@ -21,6 +21,60 @@ export default function App() {
     return []
   })
 
+  const loadFromDB = async () => {
+  const { data, error } = await supabase
+    .from('projects')
+    .select(`
+      id,
+      name,
+      tasks (
+        id,
+        work,
+        title,
+        owner,
+        status,
+        artifact_name,
+        artifact_url,
+        task_dates (
+          work_date,
+          color
+        )
+      )
+    `)
+    .order('id', { ascending: true })
+
+  if (error) {
+    console.log('load error=', error)
+    alert('DB 데이터 불러오기 실패')
+    return
+  }
+
+  const nextProjects = data.map(project => ({
+    id: project.id,
+    name: project.name || '',
+    tasks: (project.tasks || []).map(task => ({
+      id: task.id,
+      work: task.work || '',
+      title: task.title || '',
+      owner: task.owner || '',
+      status: task.status || '대기',
+      artifactName: task.artifact_name || '',
+      artifactUrl: task.artifact_url || '',
+      dates: (task.task_dates || [])
+        .filter(d => d.color !== 'red')
+        .map(d => d.work_date)
+        .sort(),
+      redDates: (task.task_dates || [])
+        .filter(d => d.color === 'red')
+        .map(d => d.work_date)
+        .sort(),
+    })),
+  }))
+
+  setProjects(nextProjects)
+  localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
+}
+
   const [compactMode, setCompactMode] = useState(false)
   const [rangeStart, setRangeStart] = useState(() => {
   return localStorage.getItem('projectPlannerRangeStart') || '2026-04-01'
@@ -33,7 +87,10 @@ export default function App() {
   const [paintMode, setPaintMode] = useState(null)
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
-
+  
+    useEffect(() => {
+      loadFromDB()
+    }, [])
 
   const days = useMemo(() => {
     return eachDayOfInterval({
@@ -117,13 +174,31 @@ export default function App() {
 
         const insertedTask = insertedTasks[0]
 
-        if (task.dates?.length) {
-          const rows = task.dates.map(date => ({
-            task_id: insertedTask.id,
-            work_date: date,
-            color: 'blue',
-          }))
+        const rows = [
 
+        ...(task.dates || []).map(date => ({
+      
+          task_id: insertedTask.id,
+      
+          work_date: date,
+      
+          color: 'blue',
+      
+        })),
+      
+        ...(task.redDates || []).map(date => ({
+      
+          task_id: insertedTask.id,
+      
+          work_date: date,
+      
+          color: 'red',
+      
+        })),
+      
+      ]
+      
+      if (rows.length) {
           const { error: dateError } = await supabase
             .from('task_dates')
             .insert(rows)
@@ -233,6 +308,7 @@ export default function App() {
                   artifactName: '',
                   artifactUrl: '',
                   dates: [],
+                  redDates: [],
                 },
               ],
             }

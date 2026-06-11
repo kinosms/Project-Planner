@@ -821,16 +821,27 @@ const projectSummary =
 
 
   const urgentTasks = flatTasks
-    .map(task => {
-      const dates = [...(task.redDates || []), ...(task.dates || [])].sort()
-      return {
-        ...task,
-        dueDate: dates[dates.length - 1],
-      }
-    })
-    .filter(task => task.dueDate && task.status !== '완료')
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-    .slice(0, 5)
+  .map(task => {
+    const dates = [...(task.redDates || []), ...(task.dates || [])].sort()
+    return {
+      ...task,
+      dueDate: dates[dates.length - 1],
+    }
+  })
+  .filter(task => {
+    if (!task.dueDate) return false
+    if (task.status !== '진행') return false
+    const today = new Date(todayString)
+    const due = new Date(task.dueDate)
+    today.setHours(0, 0, 0, 0)
+    due.setHours(0, 0, 0, 0)
+    const diffDays = Math.ceil(
+      (due - today) / (1000 * 60 * 60 * 24)
+    )
+    return diffDays >= 0 && diffDays <= 5
+  })
+  .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+  .slice(0, 5)
 
   return (
     <div className="app" onMouseUp={endPaint}>
@@ -1531,7 +1542,7 @@ function Dashboard({
         </section>
 
         <section className="dashboard-panel">
-          <h3>마감 임박 업무</h3>
+          <h3>종료 예정 업무</h3>
 
           <div className="urgent-list">
             {urgentTasks.length === 0 ? (

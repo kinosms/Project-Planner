@@ -37,6 +37,7 @@ export default function App() {
   const [page, setPage] = useState('planner')
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '')
   const [selectedOwner, setSelectedOwner] = useState('')
+    const [memoEditor, setMemoEditor] = useState(null)
 
 
   const days = useMemo(() => {
@@ -131,23 +132,39 @@ export default function App() {
         }
 
         const insertedTask = insertedTasks[0]
-
-        if (task.dates?.length) {
-          const rows = task.dates.map(date => ({
+        const memoDates = task.memoDates || {}
+        const rows = [
+          ...(task.dates || []).map(date => ({
             task_id: insertedTask.id,
             work_date: date,
             color: 'blue',
-          }))
-
+            memo: memoDates[date] || null,
+          })),
+          ...(task.redDates || []).map(date => ({
+            task_id: insertedTask.id,
+            work_date: date,
+            color: 'red',
+            memo: memoDates[date] || null,
+          })),
+          ...Object.entries(memoDates)
+            .filter(([date]) => !(task.dates || []).includes(date) && !(task.redDates || []).includes(date))
+            .map(([date, memo]) => ({
+              task_id: insertedTask.id,
+              work_date: date,
+              color: 'memo',
+              memo,
+            })),
+        ]
+        if (rows.length > 0) {
           const { error: dateError } = await supabase
             .from('task_dates')
             .insert(rows)
-
           if (dateError) {
             console.log('date error=', dateError)
             alert('일정 저장 실패')
             return
           }
+
         }
       }
     }
@@ -234,6 +251,12 @@ export default function App() {
           redDates: dateRows
             .filter(date => date.task_id === task.id && date.color === 'red')
             .map(date => date.work_date),
+          memoDates: dateRows
+            .filter(date => date.task_id === task.id && date.memo)
+            .reduce((acc, date) => {
+              acc[date.work_date] = date.memo
+              return acc
+            }, {}),
         })),
     }))
 
@@ -337,6 +360,8 @@ export default function App() {
                   artifactName: '',
                   artifactUrl: '',
                   dates: [],
+                  redDates: [],
+                  memoDates: {},
                 },
               ],
             }
@@ -344,6 +369,21 @@ export default function App() {
       )
     )
   }
+
+  const updateDateMemo = (projectId, taskId, date) => {
+  const currentTask = projects
+    .find(project => project.id === projectId)
+    ?.tasks.find(task => task.id === taskId)
+  setMemoEditor({
+    projectId,
+    taskId,
+    date,
+    memo: currentTask?.memoDates?.[date] || '',
+  })
+}
+
+
+
 
   const updateProjectName = (projectId, value) => {
     saveProjects(
@@ -1057,9 +1097,16 @@ const projectSummary =
                             redSelected ? 'red-selected' : '',
                             date === todayString ? 'today-line' : '',
                             isLastFridayOfMonth(day) ? 'last-friday-line' : '',
+                            task.memoDates?.[date] ? 'has-memo' : '',
                           ].join(' ')}
-                          onMouseDown={() => {
+                          title={task.memoDates?.[date] || ''}
+                          onMouseDown={e => {
                             if (scheduleLocked) return
+                            if (e.shiftKey) {
+                              e.preventDefault()
+                              updateDateMemo(project.id, task.id, date)
+                              return
+                            }
                             toggleDate(project.id, task.id, task, date)
                           }}
                           onDoubleClick={() => {
@@ -1070,7 +1117,13 @@ const projectSummary =
                             if (scheduleLocked) return
                             paintOverDate(project.id, task.id, date)
                           }}
-                        />
+                        >
+                          {task.memoDates?.[date] && (
+                            <span className="cell-memo">
+                              <span className="cell-memo-text">{task.memoDates[date]}</span>
+                            </span>
+                          )}
+                        </div>
                       )
                     })}
                   </div>
@@ -1155,6 +1208,106 @@ const projectSummary =
           </div>
         </div>
       )}
+
+      {memoEditor && (
+        <div className="modal-backdrop">
+          <div className="memo-modal">
+            <div className="memo-modal-head">
+              <h3>셀 메모</h3>
+              <span>{memoEditor.date}</span>
+            </div>
+
+            <textarea
+              value={memoEditor.memo}
+              onChange={e =>
+                setMemoEditor({
+                  ...memoEditor,
+                  memo: e.target.value,
+                })
+              }
+              placeholder="이 날짜에 남길 메모를 입력하세요"
+              autoFocus
+            />
+
+            <div className="memo-modal-actions">
+              <button
+                className="danger"
+                onClick={() => {
+                  const { projectId, taskId, date } = memoEditor
+
+                  saveProjects(
+                    projects.map(project =>
+                      project.id === projectId
+                        ? {
+                            ...project,
+                            tasks: project.tasks.map(task => {
+                              if (task.id !== taskId) return task
+
+                              const nextMemoDates = { ...(task.memoDates || {}) }
+                              delete nextMemoDates[date]
+
+                              return {
+                                ...task,
+                                memoDates: nextMemoDates,
+                              }
+                            }),
+                          }
+                        : project
+                    )
+                  )
+
+                  setMemoEditor(null)
+                }}
+              >
+                삭제
+              </button>
+
+              <div className="memo-modal-right">
+                <button onClick={() => setMemoEditor(null)}>취소</button>
+
+                <button
+                  className="primary"
+                  onClick={() => {
+                    const { projectId, taskId, date, memo } = memoEditor
+
+                    saveProjects(
+                      projects.map(project =>
+                        project.id === projectId
+                          ? {
+                              ...project,
+                              tasks: project.tasks.map(task => {
+                                if (task.id !== taskId) return task
+
+                                const nextMemoDates = { ...(task.memoDates || {}) }
+                                const memoText = memo.trim()
+
+                                if (memoText) {
+                                  nextMemoDates[date] = memoText
+                                } else {
+                                  delete nextMemoDates[date]
+                                }
+
+                                return {
+                                  ...task,
+                                  memoDates: nextMemoDates,
+                                }
+                              }),
+                            }
+                          : project
+                      )
+                    )
+
+                    setMemoEditor(null)
+                  }}
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

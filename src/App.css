@@ -433,6 +433,26 @@ h1 {
 
 
 /* =========================
+   달력 빨간날 수동입력
+========================= */
+
+.day-cell.custom-holiday {
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.grid-cell.custom-holiday-line {
+  background: #fff1f2;
+}
+
+.grid-cell.selected.custom-holiday-line {
+  background: #2563eb;
+}
+
+
+
+/* =========================
    URL 입력 모달
 ========================= */
 
@@ -1056,40 +1076,35 @@ h1 {
 
 .cell-memo {
   position: absolute;
-  top: -16px;
-  left: calc(100% - 4px);
+  top: -5px;
+  left: calc(100% - 15px);
+
   display: inline-flex;
   align-items: center;
-  min-width: fit-content;
+
   max-width: 120px;
   padding: 4px 10px;
+
+  border-radius: 14px;
   background: #ef4444;
   color: white;
-  border-radius: 14px;
+
   font-size: 10px;
   font-weight: 700;
-  z-index: 50;
+  line-height: 1.2;
+
+  pointer-events: none;
+  z-index: 100;
+
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.22);
 }
 
 .cell-memo-text {
   display: block;
-  max-width: 72px;
+  max-width: 100px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.cell-memo::after {
-  content: '';
-  position: absolute;
-  left: -3px;
-  bottom: -6px;
-  width: 8;
-  height: 8;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-right: 10px solid #ef4444;
-  transform: rotate(-50deg);
 }
 
 .grid-cell {

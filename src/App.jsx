@@ -65,7 +65,23 @@ export default function App() {
 
 
 
+  const [customHolidayDates, setCustomHolidayDates] = useState(() => {
+    const saved = localStorage.getItem('projectPlannerCustomHolidayDates')
+    return saved ? JSON.parse(saved) : []
+  })
 
+  const toggleCustomHolidayDate = date => {
+    if (customHolidayDates.includes(date)) {
+      const next = customHolidayDates.filter(d => d !== date)
+      setCustomHolidayDates(next)
+      localStorage.setItem('projectPlannerCustomHolidayDates', JSON.stringify(next))
+      return
+    }
+
+    const next = [...customHolidayDates, date].sort()
+    setCustomHolidayDates(next)
+    localStorage.setItem('projectPlannerCustomHolidayDates', JSON.stringify(next))
+  }
 
 
 
@@ -1062,7 +1078,12 @@ const projectSummary =
                           'day-cell',
                           isToday ? 'today' : '',
                           isLastFridayOfMonth(day) ? 'last-friday' : '',
+                          customHolidayDates.includes(dateString) ? 'custom-holiday' : '',
                         ].join(' ')}
+                        onDoubleClick={() => {
+                          if (isLastFridayOfMonth(day)) return
+                          toggleCustomHolidayDate(dateString)
+                        }}
                         key={day.toISOString()}
                       >
                         {format(day, 'd')}
@@ -1097,6 +1118,7 @@ const projectSummary =
                             redSelected ? 'red-selected' : '',
                             date === todayString ? 'today-line' : '',
                             isLastFridayOfMonth(day) ? 'last-friday-line' : '',
+                            customHolidayDates.includes(date) ? 'custom-holiday-line' : '',
                             task.memoDates?.[date] ? 'has-memo' : '',
                           ].join(' ')}
                           title={task.memoDates?.[date] || ''}

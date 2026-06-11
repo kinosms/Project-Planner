@@ -155,11 +155,6 @@ export default function App() {
     alert('DB 저장 완료')
   }
 
-  useEffect(() => {
-
-    loadFromDB()
-
-  }, [])
 
   const loadFromDB = async () => {
     const { data: projectRows, error: projectError } = await supabase
@@ -217,6 +212,12 @@ export default function App() {
     setProjects(nextProjects)
     localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
   }
+
+    useEffect(() => {
+
+      loadFromDB()
+
+    }, [])
 
 
 

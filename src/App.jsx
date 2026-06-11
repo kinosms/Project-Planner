@@ -35,6 +35,7 @@ export default function App() {
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
   const [page, setPage] = useState('planner')
+  const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '')
 
 
   const days = useMemo(() => {
@@ -941,6 +942,9 @@ export default function App() {
           projectSummary={projectSummary}
           ownerSummary={ownerSummary}
           urgentTasks={urgentTasks}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          setSelectedProjectId={setSelectedProjectId}
         />
       )}
 
@@ -1014,7 +1018,23 @@ function Dashboard({
   projectSummary,
   ownerSummary,
   urgentTasks,
+  projects,
+  selectedProjectId,
+  setSelectedProjectId,
 }) {
+  const selectedProject =
+    projects.find(project => project.id === selectedProjectId) || projects[0]
+  const selectedTasks = selectedProject?.tasks || []
+  const projectProgress =
+    selectedTasks.length === 0
+      ? 0
+      : Math.round(
+          selectedTasks.reduce((sum, task) => {
+            if (task.status === '완료') return sum + 100
+            if (task.status === '진행') return sum + 50
+            return sum
+          }, 0) / selectedTasks.length
+        )
   return (
     <div className="dashboard">
       <div className="dashboard-cards">
@@ -1124,6 +1144,62 @@ function Dashboard({
           </div>
         </section>
       </div>
+
+            <section className="project-board">
+        <div className="project-board-head">
+          <h3>프로젝트별 업무 현황</h3>
+          <strong>
+            {selectedProject?.name || '이름없는 프로젝트'} · 평균 진도율{' '}
+            {projectProgress}%
+          </strong>
+        </div>
+
+        <div className="project-bubbles">
+          {projects.map(project => (
+            <button
+              key={project.id}
+              className={selectedProject?.id === project.id ? 'active' : ''}
+              onClick={() => setSelectedProjectId(project.id)}
+            >
+              {project.name || '이름없는 프로젝트'}
+            </button>
+          ))}
+        </div>
+
+        <div className="project-task-table">
+          <div className="project-task-header">
+            <span>업무내용</span>
+            <span>상세내용</span>
+            <span>상태</span>
+            <span>진도율</span>
+            <span>담당자</span>
+          </div>
+
+          {selectedTasks.length === 0 ? (
+            <div className="project-task-empty">업무가 없습니다.</div>
+          ) : (
+            selectedTasks.map(task => {
+              const progress =
+                task.status === '완료' ? 100 : task.status === '진행' ? 50 : 0
+
+              return (
+                <div className="project-task-row" key={task.id}>
+                  <span>{task.work}</span>
+                  <span>{task.title}</span>
+                  <span>{task.status || '대기'}</span>
+                  <span className="project-progress-cell">
+                  <div className="project-progress-bar">
+                    <i style={{ width: `${progress}%` }} />
+                  </div>
+                  <b>{progress}%</b>
+                </span>
+                  <span>{task.owner || '미지정'}</span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </section>
 
       <p className="dashboard-note">* 위 데이터는 선택한 기간 기준입니다.</p>
     </div>

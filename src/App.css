@@ -21,15 +21,6 @@ body {
   background: #f5f6fa;
 }
 
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: #f5f6fa;
-  height: auto;
-  margin-bottom: 0px;
-}
-
 h1 {
   margin: 0 0 8px;
   text-align: center;
@@ -535,7 +526,7 @@ h1 {
   top: 0;
   z-index: 50;
   background: #f5f6fa;
-  height: 128px;
+  height: 98px;
   margin-bottom: 10px;
 }
 
@@ -793,3 +784,107 @@ h1 {
   font-size: 12px;
 }
 
+
+/* =========================
+   PROJECT BOARD
+========================= */
+
+.project-board {
+  margin-top: 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.project-board-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.project-board-head h3 {
+  margin: 0;
+}
+
+.project-bubbles {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.project-bubbles button {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  background: white;
+  cursor: pointer;
+}
+
+.project-bubbles button.active {
+  background: #374151;
+  color: white;
+  font-weight: 700;
+}
+
+.project-task-table {
+  border: 1px solid #e5e7eb;
+}
+
+.project-task-header,
+.project-task-row {
+  display: grid;
+  grid-template-columns:
+  100px   /* 업무 */
+  1fr     /* 상세내용 */
+  100px   /* 상태 */
+  180px   /* 진도율 */
+  140px;  /* 담당자 */
+  min-height: 34px;
+  align-items: center;
+}
+
+.project-task-header {
+  background: #f3f4f6;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.project-task-row {
+  border-top: 1px solid #eee;
+  font-size: 13px;
+}
+
+.project-task-header span,
+.project-task-row span {
+  padding: 0 10px;
+}
+
+.project-progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-progress-bar {
+  width: 110px;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.project-progress-bar i {
+  display: block;
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 999px;
+}
+
+.project-progress-cell b {
+  min-width: 36px;
+  font-size: 12px;
+}

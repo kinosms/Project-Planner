@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   addMonths,
   eachDayOfInterval,
@@ -21,59 +21,6 @@ export default function App() {
     return []
   })
 
-  const loadFromDB = async () => {
-  const { data, error } = await supabase
-    .from('projects')
-    .select(`
-      id,
-      name,
-      tasks (
-        id,
-        work,
-        title,
-        owner,
-        status,
-        artifact_name,
-        artifact_url,
-        task_dates (
-          work_date,
-          color
-        )
-      )
-    `)
-    .order('id', { ascending: true })
-
-  if (error) {
-    console.log('load error=', error)
-    alert('DB 데이터 불러오기 실패')
-    return
-  }
-
-  const nextProjects = data.map(project => ({
-    id: project.id,
-    name: project.name || '',
-    tasks: (project.tasks || []).map(task => ({
-      id: task.id,
-      work: task.work || '',
-      title: task.title || '',
-      owner: task.owner || '',
-      status: task.status || '대기',
-      artifactName: task.artifact_name || '',
-      artifactUrl: task.artifact_url || '',
-      dates: (task.task_dates || [])
-        .filter(d => d.color !== 'red')
-        .map(d => d.work_date)
-        .sort(),
-      redDates: (task.task_dates || [])
-        .filter(d => d.color === 'red')
-        .map(d => d.work_date)
-        .sort(),
-    })),
-  }))
-
-  setProjects(nextProjects)
-  localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
-}
 
   const [compactMode, setCompactMode] = useState(false)
   const [rangeStart, setRangeStart] = useState(() => {
@@ -87,10 +34,8 @@ export default function App() {
   const [paintMode, setPaintMode] = useState(null)
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
-  
-    useEffect(() => {
-      loadFromDB()
-    }, [])
+  const [page, setPage] = useState('planner')
+
 
   const days = useMemo(() => {
     return eachDayOfInterval({
@@ -174,31 +119,13 @@ export default function App() {
 
         const insertedTask = insertedTasks[0]
 
-        const rows = [
+        if (task.dates?.length) {
+          const rows = task.dates.map(date => ({
+            task_id: insertedTask.id,
+            work_date: date,
+            color: 'blue',
+          }))
 
-        ...(task.dates || []).map(date => ({
-      
-          task_id: insertedTask.id,
-      
-          work_date: date,
-      
-          color: 'blue',
-      
-        })),
-      
-        ...(task.redDates || []).map(date => ({
-      
-          task_id: insertedTask.id,
-      
-          work_date: date,
-      
-          color: 'red',
-      
-        })),
-      
-      ]
-      
-      if (rows.length) {
           const { error: dateError } = await supabase
             .from('task_dates')
             .insert(rows)
@@ -308,7 +235,6 @@ export default function App() {
                   artifactName: '',
                   artifactUrl: '',
                   dates: [],
-                  redDates: [],
                 },
               ],
             }
@@ -423,19 +349,19 @@ export default function App() {
     setRangeEnd(format(nextEnd, 'yyyy-MM-dd'))
   }
 
-const toggleScheduleLock = () => {
-  if (!scheduleLocked) {
-    setScheduleLocked(true)
-    return
-  }
+  const toggleScheduleLock = () => {
+    if (!scheduleLocked) {
+      setScheduleLocked(true)
+      return
+    }
 
-  const password = prompt('짐승거인과 관계된 운동은')
-  if (password === '야구') {
-    setScheduleLocked(false)
-  } else {
-    alert('비밀번호가 맞지 않아')
+    const password = prompt('갑옷거인의 인물 이름은?')
+    if (password === '라이너') {
+      setScheduleLocked(false)
+    } else {
+      alert('비밀번호가 맞지 않아')
+    }
   }
-}
 
 
 
@@ -545,56 +471,56 @@ const toggleScheduleLock = () => {
 
 
 
-const getWeekNumberInMonth = day => {
-  const monthStart = startOfMonth(day)
-  const monthStartDay = monthStart.getDay()
+  const getWeekNumberInMonth = day => {
+    const monthStart = startOfMonth(day)
+    const monthStartDay = monthStart.getDay()
 
-  let firstWeekStart = new Date(monthStart)
+    let firstWeekStart = new Date(monthStart)
 
-  // 1일이 월/화/수면 그 주가 1주차
-  if (monthStartDay >= 1 && monthStartDay <= 3) {
-    firstWeekStart.setDate(monthStart.getDate() - (monthStartDay - 1))
-  } else {
-    // 1일이 목/금/토/일이면 다음 월요일부터 1주차
-    const addDays = monthStartDay === 0 ? 1 : 8 - monthStartDay
-    firstWeekStart.setDate(monthStart.getDate() + addDays)
-  }
-
-  const diff =
-    (day.getTime() - firstWeekStart.getTime()) /
-    (1000 * 60 * 60 * 24)
-
-  return Math.floor(diff / 7) + 1
-}
-
-const weekGroups = useMemo(() => {
-  const groups = []
-
-  days.forEach(day => {
-    const dayOfWeek = day.getDay()
-
-    const monday = new Date(day)
-    monday.setDate(day.getDate() - (dayOfWeek - 1))
-
-    const weekKey = format(monday, 'yyyy-MM-dd')
-    const last = groups[groups.length - 1]
-
-    if (last && last.key === weekKey) {
-      last.count += 1
-      return
+    // 1일이 월/화/수면 그 주가 1주차
+    if (monthStartDay >= 1 && monthStartDay <= 3) {
+      firstWeekStart.setDate(monthStart.getDate() - (monthStartDay - 1))
+    } else {
+      // 1일이 목/금/토/일이면 다음 월요일부터 1주차
+      const addDays = monthStartDay === 0 ? 1 : 8 - monthStartDay
+      firstWeekStart.setDate(monthStart.getDate() + addDays)
     }
 
-    const weekNumber = getWeekNumberInMonth(day)
+    const diff =
+      (day.getTime() - firstWeekStart.getTime()) /
+      (1000 * 60 * 60 * 24)
 
-    groups.push({
-      key: weekKey,
-      label: `${weekNumber}w`,
-      count: 1,
+    return Math.floor(diff / 7) + 1
+  }
+
+  const weekGroups = useMemo(() => {
+    const groups = []
+
+    days.forEach(day => {
+      const dayOfWeek = day.getDay()
+
+      const monday = new Date(day)
+      monday.setDate(day.getDate() - (dayOfWeek - 1))
+
+      const weekKey = format(monday, 'yyyy-MM-dd')
+      const last = groups[groups.length - 1]
+
+      if (last && last.key === weekKey) {
+        last.count += 1
+        return
+      }
+
+      const weekNumber = getWeekNumberInMonth(day)
+
+      groups.push({
+        key: weekKey,
+        label: `${weekNumber}w`,
+        count: 1,
+      })
     })
-  })
 
-  return groups
-}, [days])
+    return groups
+  }, [days])
 
 
 
@@ -618,6 +544,38 @@ const weekGroups = useMemo(() => {
   const doing = flatTasks.filter(task => task.status === '진행').length
   const waiting = flatTasks.filter(task => task.status === '대기').length
 
+  const completionRate = total === 0 ? 0 : Math.round((done / total) * 1000) / 10
+  const projectSummary = projects.map(project => {
+    const count = project.tasks.length
+    const percent = total === 0 ? 0 : Math.round((count / total) * 1000) / 10
+    return {
+      name: project.name || '이름없는 프로젝트',
+      count,
+      percent,
+    }
+  })
+
+  const ownerSummary = Object.entries(
+    flatTasks.reduce((acc, task) => {
+      const owner = task.owner || '미지정'
+      acc[owner] = (acc[owner] || 0) + 1
+      return acc
+    }, {})
+  )
+    .map(([owner, count]) => ({ owner, count }))
+    .sort((a, b) => b.count - a.count)
+  const urgentTasks = flatTasks
+    .map(task => {
+      const dates = [...(task.redDates || []), ...(task.dates || [])].sort()
+      return {
+        ...task,
+        dueDate: dates[dates.length - 1],
+      }
+    })
+    .filter(task => task.dueDate && task.status !== '완료')
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .slice(0, 5)
+
   return (
     <div className="app" onMouseUp={endPaint}>
       <datalist id="owner-suggestions">
@@ -627,299 +585,364 @@ const weekGroups = useMemo(() => {
       </datalist>
 
       <header className="topbar">
-        <h1>Project Planner</h1>
-
-        <div className="toolbar">
-          <button onClick={addProject}>+ 프로젝트</button>
-
-          <button onClick={() => setCompactMode(!compactMode)}>
-            {compactMode ? '전체형' : '축소형'}
+      <div className="header-row">
+        <div className="page-tabs">
+          <button
+            className={page === 'dashboard' ? 'active' : ''}
+            onClick={() => setPage('dashboard')}
+          >
+            대시보드
           </button>
 
-          <button onClick={() => setRange('month')}>이번달</button>
-          <button onClick={() => setRange('3months')}>최근3개월</button>
-          <button onClick={() => setRange('6months')}>최근6개월</button>
-          <button onClick={addOneMonth}>+1개월</button>
-          <input
-            type="date"
-            value={rangeStart}
-            onChange={e => {
-              setRangeStart(e.target.value)
-              localStorage.setItem('projectPlannerRangeStart', e.target.value)
-            }}
-          />
-
-          <input
-            type="date"
-            value={rangeEnd}
-            onChange={e => {
-              setRangeEnd(e.target.value)
-              localStorage.setItem('projectPlannerRangeEnd', e.target.value)
-            }}
-          />
-          <button onClick={toggleScheduleLock}>
-            {scheduleLocked ? '🔒 일정잠금' : '🔓 편집중'}
+          <button
+            className={page === 'planner' ? 'active' : ''}
+            onClick={() => setPage('planner')}
+          >
+            플래너
           </button>
-          <button onClick={saveAllToDB}>저장</button>
-
-          <div className="stats">
-            <span>전체 {total}</span>
-            <span>진행 {doing}</span>
-            <span>대기 {waiting}</span>
-            <span>완료 {done}</span>
-          </div>
         </div>
-      </header>
 
-      <div className="planner">
-        <div className="planner-inner">
-          <div className={compactMode ? 'info-panel compact' : 'info-panel'}>
-            <div className="info-sticky-header">
-              <div className="table-title">AI OPERATION</div>
-              <div className="info-header">
-                <div>프로젝트</div>
-                <div>업무</div>
-                <div>상세내용</div>
+        <h1>{page === 'planner' ? 'Project Planner' : 'Project Dashboard'}</h1>
 
-                {!compactMode && (
-                  <>
-                    <div>참조</div>
-                    <div>담당자</div>
-                  </>
-                )}
+        <div className="top-icons">
+          <button>🔔</button>
+          <button>⚙️</button>
+        </div>
+      </div>
 
-                <div>상태</div>
-                <div></div>
-              </div>
-            </div>
+      <div className="toolbar">
+        {page === 'planner' ? (
+          <>
+            <button onClick={addProject}>+ 프로젝트</button>
+            <button onClick={() => setCompactMode(!compactMode)}>
+              {compactMode ? '전체형' : '축소형'}
+            </button>
+            <button onClick={() => setRange('month')}>이번달</button>
+            <button onClick={() => setRange('3months')}>최근3개월</button>
+            <button onClick={() => setRange('6months')}>최근6개월</button>
+            <button onClick={addOneMonth}>+1개월</button>
 
-            {projects.map(project => (
-              <div className="project-group" key={project.id}>
-                <div className="project-cell project-bottom-line">
-                  <input
-                    className="table-input"
-                    value={project.name}
-                    onChange={e => updateProjectName(project.id, e.target.value)}
-                    onKeyDown={e => moveNextCell(e, project.id)}
-                  />
+            <input
+              type="date"
+              value={rangeStart}
+              onChange={e => {
+                setRangeStart(e.target.value)
+                localStorage.setItem('projectPlannerRangeStart', e.target.value)
+              }}
+            />
 
-                  <button
-                    className="add-task-btn"
-                    onClick={() => addTaskToProject(project.id)}
-                    title="업무 추가"
-                  >
-                    +
-                  </button>
+            <input
+              type="date"
+              value={rangeEnd}
+              onChange={e => {
+                setRangeEnd(e.target.value)
+                localStorage.setItem('projectPlannerRangeEnd', e.target.value)
+              }}
+            />
+
+            <button onClick={toggleScheduleLock}>
+              {scheduleLocked ? '🔒 일정잠금' : '🔓 편집중'}
+            </button>
+            <button onClick={saveAllToDB}>저장</button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => updateRange('2026-01-01', '2026-12-31')}>
+              전체기간
+            </button>
+            <button onClick={() => setRange('month')}>이번달</button>
+            <button onClick={() => setRange('3months')}>최근3개월</button>
+
+            <input
+              type="date"
+              value={rangeStart}
+              onChange={e => {
+                setRangeStart(e.target.value)
+                localStorage.setItem('projectPlannerRangeStart', e.target.value)
+              }}
+            />
+
+            <span className="toolbar-separator">~</span>
+
+            <input
+              type="date"
+              value={rangeEnd}
+              onChange={e => {
+                setRangeEnd(e.target.value)
+                localStorage.setItem('projectPlannerRangeEnd', e.target.value)
+              }}
+            />
+            
+            <button>📗 엑셀내보내기</button>
+            <button>📄 PDF 내보내기</button>
+          </>
+        )}
+      </div>
+    </header>
+
+
+      {page === 'planner' ? (
+        <div className="planner">
+          <div className="planner-inner">
+            <div className={compactMode ? 'info-panel compact' : 'info-panel'}>
+              <div className="info-sticky-header">
+                <div className="table-title">AI OPERATION</div>
+                <div className="info-header">
+                  <div>프로젝트</div>
+                  <div>업무</div>
+                  <div>상세내용</div>
+
+                  {!compactMode && (
+                    <>
+                      <div>참조</div>
+                      <div>담당자</div>
+                    </>
+                  )}
+
+                  <div>상태</div>
+                  <div></div>
                 </div>
+              </div>
 
-                <div className="project-task-list">
-                  {project.tasks.map((task, taskIndex) => {
-                    const isLastTaskInProject = taskIndex === project.tasks.length - 1
-                    return (
-                      <div
-                        className={[
-                          'task-row-fields',
-                          isLastTaskInProject ? 'project-bottom-line' : '',
-                        ].join(' ')}
-                        key={task.id}
+              {projects.map(project => (
+                <div className="project-group" key={project.id}>
+                  <div className="project-cell project-bottom-line">
+                    <input
+                      className="table-input"
+                      value={project.name}
+                      onChange={e => updateProjectName(project.id, e.target.value)}
+                      onKeyDown={e => moveNextCell(e, project.id)}
+                    />
 
-                      >
-                      <input
-                        className="table-input"
-                        onKeyDown={e => moveNextCell(e, project.id)}
-                        value={task.work}
-                        onChange={e =>
-                          updateTask(project.id, task.id, 'work', e.target.value)
-                        }
-                      />
+                    <button
+                      className="add-task-btn"
+                      onClick={() => addTaskToProject(project.id)}
+                      title="업무 추가"
+                    >
+                      +
+                    </button>
+                  </div>
 
-                      <input
-                        className="table-input"
-                        onKeyDown={e => moveNextCell(e, project.id)}
-                        value={task.title}
-                        onChange={e =>
-                          updateTask(project.id, task.id, 'title', e.target.value)
-                        }
-                      />
+                  <div className="project-task-list">
+                    {project.tasks.map((task, taskIndex) => {
+                      const isLastTaskInProject = taskIndex === project.tasks.length - 1
+                      return (
+                        <div
+                          className={[
+                            'task-row-fields',
+                            isLastTaskInProject ? 'project-bottom-line' : '',
+                          ].join(' ')}
+                          key={task.id}
 
-                      {!compactMode && (
-                        <>
-                          <div
-                            className={
-                              task.artifactUrl
-                                ? 'doc-cell linked'
-                                : 'doc-cell'
-                            }
-                          >
+                        >
+                        <input
+                          className="table-input"
+                          onKeyDown={e => moveNextCell(e, project.id)}
+                          value={task.work}
+                          onChange={e =>
+                            updateTask(project.id, task.id, 'work', e.target.value)
+                          }
+                        />
+
+                        <input
+                          className="table-input"
+                          onKeyDown={e => moveNextCell(e, project.id)}
+                          value={task.title}
+                          onChange={e =>
+                            updateTask(project.id, task.id, 'title', e.target.value)
+                          }
+                        />
+
+                        {!compactMode && (
+                          <>
+                            <div
+                              className={
+                                task.artifactUrl
+                                  ? 'doc-cell linked'
+                                  : 'doc-cell'
+                              }
+                            >
+                              <input
+                                className="table-input"
+                                onKeyDown={e => moveNextCell(e, project.id)}
+                                value={task.artifactName}
+                                onChange={e =>
+                                  updateTask(
+                                    project.id,
+                                    task.id,
+                                    'artifactName',
+                                    e.target.value
+                                  )
+                                }
+                              />
+
+                              <button
+                                className={
+                                  task.artifactUrl
+                                    ? 'url-button linked'
+                                    : 'url-button'
+                                }
+                                onClick={() =>
+                                  setUrlEditor({
+                                    projectId: project.id,
+                                    taskId: task.id,
+                                    url: task.artifactUrl || '',
+                                  })
+                                }
+                                title="문서 링크 설정"
+                              >
+                                🔗
+                              </button>
+                            </div>
+
                             <input
                               className="table-input"
+                              list="owner-suggestions"
                               onKeyDown={e => moveNextCell(e, project.id)}
-                              value={task.artifactName}
+                              value={task.owner}
                               onChange={e =>
                                 updateTask(
                                   project.id,
                                   task.id,
-                                  'artifactName',
+                                  'owner',
                                   e.target.value
                                 )
                               }
                             />
+                          </>
+                        )}
 
-                            <button
-                              className={
-                                task.artifactUrl
-                                  ? 'url-button linked'
-                                  : 'url-button'
-                              }
-                              onClick={() =>
-                                setUrlEditor({
-                                  projectId: project.id,
-                                  taskId: task.id,
-                                  url: task.artifactUrl || '',
-                                })
-                              }
-                              title="문서 링크 설정"
-                            >
-                              🔗
-                            </button>
+                        <div className="status-cell">
+                          <div
+                            className={`status-pill status-${task.status}`}
+                            onClick={() => cycleStatus(project.id, task.id)}
+                          >
+                            {task.status}
                           </div>
-
-                          <input
-                            className="table-input"
-                            list="owner-suggestions"
-                            onKeyDown={e => moveNextCell(e, project.id)}
-                            value={task.owner}
-                            onChange={e =>
-                              updateTask(
-                                project.id,
-                                task.id,
-                                'owner',
-                                e.target.value
-                              )
-                            }
-                          />
-                        </>
-                      )}
-
-                      <div className="status-cell">
-                        <div
-                          className={`status-pill status-${task.status}`}
-                          onClick={() => cycleStatus(project.id, task.id)}
-                        >
-                          {task.status}
                         </div>
+
+                        <button
+                          className="delete-btn"
+                          onClick={() => deleteTask(project.id, task.id)}
+                          title="삭제"
+                        >
+                          x
+                        </button>
                       </div>
-
-                      <button
-                        className="delete-btn"
-                        onClick={() => deleteTask(project.id, task.id)}
-                        title="삭제"
-                      >
-                        x
-                      </button>
-                    </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="timeline-panel">
-            <div className="timeline-header">
-              <div className="month-row">
-                {monthGroups.map(month => (
-                  <div
-                    className="month-cell"
-                    key={month.key}
-                    style={{ width: `${month.count * 32}px` }}
-                  >
-                    {month.label}
-                  </div>
-                ))}
-              </div>
-
-              <div className="week-row">
-                {weekGroups.map(week => (
-                  <div
-                    className="week-cell"
-                    key={week.key}
-                    style={{ width: `${week.count * 32}px` }}
-                  >
-                    {week.label}
-                  </div>
-                ))}
-              </div>
-
-              <div className="date-row">
-                {days.map(day => {
-                  const dateString = format(day, 'yyyy-MM-dd')
-                  const isToday = dateString === todayString
-
-                  return (
-                    <div
-                      className={[
-                        'day-cell',
-                        isToday ? 'today' : '',
-                        isLastFridayOfMonth(day) ? 'last-friday' : '',
-                      ].join(' ')}
-                      key={day.toISOString()}
-                    >
-                      {format(day, 'd')}
-                    </div>
-                  )
-                })}
-              </div>
+              ))}
             </div>
 
-            {projects.map(project =>
-              project.tasks.map((task, taskIndex) => {
-                const isLastTaskInProject = taskIndex === project.tasks.length - 1
-                return (
-                  <div
-                    className={[
-                      'timeline-row',
-                      isLastTaskInProject ? 'project-bottom-line' : '',
-                    ].join(' ')}
-                    key={`${project.id}-${task.id}`}
-                  >
+            <div className="timeline-panel">
+              <div className="timeline-header">
+                <div className="month-row">
+                  {monthGroups.map(month => (
+                    <div
+                      className="month-cell"
+                      key={month.key}
+                      style={{ width: `${month.count * 32}px` }}
+                    >
+                      {month.label}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="week-row">
+                  {weekGroups.map(week => (
+                    <div
+                      className="week-cell"
+                      key={week.key}
+                      style={{ width: `${week.count * 32}px` }}
+                    >
+                      {week.label}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="date-row">
                   {days.map(day => {
-                    const date = format(day, 'yyyy-MM-dd')
-                    const selected = isDateSelected(task, date)
-                    const redSelected = isRedDateSelected(task, date)
+                    const dateString = format(day, 'yyyy-MM-dd')
+                    const isToday = dateString === todayString
 
                     return (
                       <div
-                        key={date}
                         className={[
-                          'grid-cell',
-                          selected ? 'selected' : '',
-                          redSelected ? 'red-selected' : '',
-                          date === todayString ? 'today-line' : '',
-                          isLastFridayOfMonth(day) ? 'last-friday-line' : '',
+                          'day-cell',
+                          isToday ? 'today' : '',
+                          isLastFridayOfMonth(day) ? 'last-friday' : '',
                         ].join(' ')}
-                        onMouseDown={() => {
-                          if (scheduleLocked) return
-                          toggleDate(project.id, task.id, task, date)
-                        }}
-                        onDoubleClick={() => {
-                          if (scheduleLocked) return
-                          toggleRedDate(project.id, task.id, date)
-                        }}
-                        onMouseEnter={() => {
-                          if (scheduleLocked) return
-                          paintOverDate(project.id, task.id, date)
-                        }}
-                      />
+                        key={day.toISOString()}
+                      >
+                        {format(day, 'd')}
+                      </div>
                     )
                   })}
                 </div>
-              )
-            })
-            )}
+              </div>
+
+              {projects.map(project =>
+                project.tasks.map((task, taskIndex) => {
+                  const isLastTaskInProject = taskIndex === project.tasks.length - 1
+                  return (
+                    <div
+                      className={[
+                        'timeline-row',
+                        isLastTaskInProject ? 'project-bottom-line' : '',
+                      ].join(' ')}
+                      key={`${project.id}-${task.id}`}
+                    >
+                    {days.map(day => {
+                      const date = format(day, 'yyyy-MM-dd')
+                      const selected = isDateSelected(task, date)
+                      const redSelected = isRedDateSelected(task, date)
+
+                      return (
+                        <div
+                          key={date}
+                          className={[
+                            'grid-cell',
+                            selected ? 'selected' : '',
+                            redSelected ? 'red-selected' : '',
+                            date === todayString ? 'today-line' : '',
+                            isLastFridayOfMonth(day) ? 'last-friday-line' : '',
+                          ].join(' ')}
+                          onMouseDown={() => {
+                            if (scheduleLocked) return
+                            toggleDate(project.id, task.id, task, date)
+                          }}
+                          onDoubleClick={() => {
+                            if (scheduleLocked) return
+                            toggleRedDate(project.id, task.id, date)
+                          }}
+                          onMouseEnter={() => {
+                            if (scheduleLocked) return
+                            paintOverDate(project.id, task.id, date)
+                          }}
+                        />
+                      )
+                    })}
+                  </div>
+                )
+              })
+              )}
+            </div>
           </div>
         </div>
-      </div>
+        ) : (
+        <Dashboard
+          total={total}
+          doing={doing}
+          waiting={waiting}
+          done={done}
+          completionRate={completionRate}
+          projectSummary={projectSummary}
+          ownerSummary={ownerSummary}
+          urgentTasks={urgentTasks}
+        />
+      )}
 
       {urlEditor && (
         <div className="modal-backdrop">
@@ -978,6 +1001,131 @@ const weekGroups = useMemo(() => {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function Dashboard({
+  total,
+  doing,
+  waiting,
+  done,
+  completionRate,
+  projectSummary,
+  ownerSummary,
+  urgentTasks,
+}) {
+  return (
+    <div className="dashboard">
+      <div className="dashboard-cards">
+        <div className="dashboard-card simple">
+          <span>전체 업무</span>
+          <strong>{total}개</strong>
+        </div>
+
+        <div className="dashboard-card simple">
+          <span>진행 중</span>
+          <strong>{doing}개</strong>
+        </div>
+
+        <div className="dashboard-card simple">
+          <span>대기 중</span>
+          <strong>{waiting}개</strong>
+        </div>
+
+       <div className="dashboard-card simple">
+          <span>완료</span>
+          <strong>{done}개</strong>
+        </div>
+
+        <div className="dashboard-card simple">
+          <span>완료율</span>
+          <strong>{completionRate}%</strong>
+        </div>
+      </div>
+
+      <div className="dashboard-grid">
+        <section className="dashboard-panel">
+          <h3>프로젝트별 진행 현황</h3>
+
+          <div className="donut-row">
+            <div className="donut project-donut"></div>
+
+            <div className="dashboard-legend">
+              {projectSummary.slice(0, 4).map(item => (
+                <div key={item.name}>
+                  <span className="legend-dot"></span>
+                  <span>{item.name}</span>
+                  <b>
+                    {item.count} ({item.percent}%)
+                  </b>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <h3>상태별 업무 비율</h3>
+
+          <div className="donut-row">
+            <div className="donut status-donut"></div>
+
+            <div className="dashboard-legend">
+              <div>
+                <span className="legend-dot blue"></span>
+                <span>진행</span>
+                <b>{doing}</b>
+              </div>
+              <div>
+                <span className="legend-dot orange"></span>
+                <span>대기</span>
+                <b>{waiting}</b>
+              </div>
+              <div>
+                <span className="legend-dot green"></span>
+                <span>완료</span>
+                <b>{done}</b>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <h3>담당자별 업무 수</h3>
+
+          <div className="owner-bars">
+            {ownerSummary.slice(0, 5).map(item => (
+              <div className="owner-row" key={item.owner}>
+                <span>{item.owner}</span>
+                <div>
+                  <i style={{ width: `${Math.min(item.count * 8, 100)}%` }} />
+                </div>
+                <b>{item.count}</b>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <h3>마감 임박 업무</h3>
+
+          <div className="urgent-list">
+            {urgentTasks.length === 0 ? (
+              <p className="empty-text">표시할 업무가 없습니다.</p>
+            ) : (
+              urgentTasks.map(task => (
+                <div key={task.id} className="urgent-row">
+                  <span>{task.title || task.work || '이름없는 업무'}</span>
+                  <b>{task.dueDate.replaceAll('-', '.')}</b>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+
+      <p className="dashboard-note">* 위 데이터는 선택한 기간 기준입니다.</p>
     </div>
   )
 }

@@ -152,11 +152,39 @@ export default function App() {
       }
     }
 
+    const { error: settingError } = await supabase
+      .from('planner_settings')
+      .upsert({
+        id: 1,
+        range_start: rangeStart,
+        range_end: rangeEnd,
+        updated_at: new Date().toISOString(),
+      })
+
+    if (settingError) {
+      console.log('setting save error=', settingError)
+      alert('보기 기간 저장 실패')
+      return
+    }
+
     alert('DB 저장 완료')
   }
 
 
   const loadFromDB = async () => {
+    const { data: settingRows, error: settingError } = await supabase
+      .from('planner_settings')
+      .select('*')
+      .eq('id', 1)
+      .limit(1)
+
+    if (!settingError && settingRows?.[0]) {
+      setRangeStart(settingRows[0].range_start)
+      setRangeEnd(settingRows[0].range_end)
+      localStorage.setItem('projectPlannerRangeStart', settingRows[0].range_start)
+      localStorage.setItem('projectPlannerRangeEnd', settingRows[0].range_end)
+    }
+
     const { data: projectRows, error: projectError } = await supabase
       .from('projects')
       .select('*')

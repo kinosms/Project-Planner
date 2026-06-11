@@ -753,7 +753,9 @@ h1 {
 }
 
 /* =========================
+
    URGENT
+
 ========================= */
 
 .urgent-list {
@@ -761,24 +763,26 @@ h1 {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 12px;
 }
 
 .urgent-row {
-  min-height: 28px;
+  height: 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0;
   border-bottom: 1px solid #eee;
 }
+
+.urgent-row span {
+  font-size: 13px;
+  line-height: 1;
+}
+
 .urgent-row b {
   color: #dc2626;
-}
-.dashboard-note {
-  text-align: center;
-  color: #888;
-  margin-top: 16px;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1;
 }
 
 

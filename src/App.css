@@ -937,3 +937,47 @@ h1 {
 .owner-task-row span {
   padding: 0 10px;
 }
+
+
+
+.project-progress-list {
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.project-progress-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 42px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.project-progress-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.project-progress-track {
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.project-progress-track i {
+  display: block;
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 999px;
+}
+
+.project-progress-row b {
+  font-size: 12px;
+  text-align: right;
+}

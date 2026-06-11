@@ -567,31 +567,43 @@ export default function App() {
   ).length
 
   const completionRate = total === 0 ? 0 : Math.round((done / total) * 1000) / 10
-  const rawProjectSummary = projects
-    .map(project => {
-      const count = dashboardTasks.filter(
-        task => task.projectId === project.id
-      ).length
-      const percent =
-        total === 0 ? 0 : Math.round((count / total) * 1000) / 10
-      return {
-        name: project.name || '',
-        count,
-        percent,
-      }
-    })
+  const projectProgressSummary = projects
+  .map(project => {
+    const tasks = dashboardTasks.filter(
+      task => task.projectId === project.id
+    )
 
-    .filter(item => item.name.trim() && item.count > 0)
-    const projectSummary =
-      rawProjectSummary.length > 0
-        ? rawProjectSummary
-        : [
-            {
-              name: '프로젝트 없음',
-              count: 0,
-              percent: 0,
-            },
-          ]
+    if (!project.name?.trim() || tasks.length === 0) {
+      return null
+    }
+
+    const progress =
+      Math.round(
+        tasks.reduce((sum, task) => {
+          if (task.status === '완료') return sum + 100
+          if (task.status === '진행') return sum + 50
+          return sum
+        }, 0) / tasks.length
+      )
+
+    return {
+      name: project.name,
+      count: tasks.length,
+      progress,
+    }
+  })
+  .filter(Boolean)
+
+const projectSummary =
+  projectProgressSummary.length > 0
+    ? projectProgressSummary
+    : [
+        {
+          name: '프로젝트 없음',
+          count: 0,
+          progress: 0,
+        },
+      ]
     .filter(item => item.name !== '이름없는 프로젝트' && item.count > 0)
 
   const ownerSummary = Object.entries(
@@ -1145,28 +1157,17 @@ function Dashboard({
 
       <div className="dashboard-grid">
         <section className="dashboard-panel">
-          <h3>프로젝트별 진행 현황</h3>
-
-          <div className="donut-row">
-            <div className={projectSummary.every(item => item.count === 0) ? 'donut project-donut empty' : 'donut project-donut'}></div>
-
-            <div className="dashboard-legend">
-
-              {(projectSummary.length > 0
-                ? projectSummary
-                : [{ name: '프로젝트 없음', count: 0, percent: 0 }]
-              )
-                .slice(0, 4)
-                .map(item => (
-                  <div key={item.name}>
-                    <span className="legend-dot"></span>
-                    <span>{item.name}</span>
-                    <b>
-                      {item.count} ({item.percent}%)
-                    </b>
-                  </div>
-                ))}
-            </div>
+          <h3>프로젝트별 진도율</h3>
+          <div className="project-progress-list">
+            {projectSummary.slice(0, 5).map(item => (
+              <div className="project-progress-row" key={item.name}>
+                <span>{item.name}</span>
+                <div className="project-progress-track">
+                  <i style={{ width: `${item.progress}%` }} />
+                </div>
+                <b>{item.progress}%</b>
+              </div>
+            ))}
           </div>
         </section>
 

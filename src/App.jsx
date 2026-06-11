@@ -1625,7 +1625,6 @@ function Dashboard({
         <section className="project-board">
           <div className="project-board-head">
             <h3>담당자별 업무 현황</h3>
-            <strong>{selectedOwner}</strong>
           </div>
 
           <div className="bubble-scroll">

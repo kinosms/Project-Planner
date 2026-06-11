@@ -82,7 +82,6 @@ export default function App() {
     localStorage.setItem('projectPlannerProjects', JSON.stringify(next))
   }
 
-
   const saveAllToDB = async () => {
     if (!confirm('현재 화면 데이터를 DB에 저장할까?')) return
 
@@ -154,6 +153,69 @@ export default function App() {
     }
 
     alert('DB 저장 완료')
+  }
+
+  useEffect(() => {
+
+    loadFromDB()
+
+  }, [])
+
+  const loadFromDB = async () => {
+    const { data: projectRows, error: projectError } = await supabase
+      .from('projects')
+      .select('*')
+      .order('id', { ascending: true })
+
+    if (projectError) {
+      console.log('project load error=', projectError)
+      return
+    }
+
+    const { data: taskRows, error: taskError } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('id', { ascending: true })
+
+    if (taskError) {
+      console.log('task load error=', taskError)
+      return
+    }
+
+    const { data: dateRows, error: dateError } = await supabase
+      .from('task_dates')
+      .select('*')
+      .order('work_date', { ascending: true })
+
+    if (dateError) {
+      console.log('date load error=', dateError)
+      return
+    }
+
+    const nextProjects = projectRows.map(project => ({
+      id: project.id,
+      name: project.name || '',
+      tasks: taskRows
+        .filter(task => task.project_id === project.id)
+        .map(task => ({
+          id: task.id,
+          work: task.work || '',
+          title: task.title || '',
+          owner: task.owner || '',
+          status: task.status || '대기',
+          artifactName: task.artifact_name || '',
+          artifactUrl: task.artifact_url || '',
+          dates: dateRows
+            .filter(date => date.task_id === task.id && date.color !== 'red')
+            .map(date => date.work_date),
+          redDates: dateRows
+            .filter(date => date.task_id === task.id && date.color === 'red')
+            .map(date => date.work_date),
+        })),
+    }))
+
+    setProjects(nextProjects)
+    localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
   }
 
 

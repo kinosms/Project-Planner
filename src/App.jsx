@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   addMonths,
   eachDayOfInterval,
@@ -36,6 +36,7 @@ export default function App() {
   const [scheduleLocked, setScheduleLocked] = useState(true)
   const [page, setPage] = useState('planner')
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '')
+  const [selectedOwner, setSelectedOwner] = useState('')
 
 
   const days = useMemo(() => {
@@ -55,6 +56,18 @@ export default function App() {
       projectName: project.name,
     }))
   )
+
+  const dashboardTasks = flatTasks.filter(task => {
+    const taskDates = [...(task.dates || []), ...(task.redDates || [])]
+    return taskDates.some(date => date >= rangeStart && date <= rangeEnd)
+  })
+
+
+
+
+
+
+
 
   const ownerSuggestions = [
     ...new Set(
@@ -540,21 +553,46 @@ export default function App() {
     return format(cursor, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
   }
 
-  const total = flatTasks.length
-  const done = flatTasks.filter(task => task.status === '완료').length
-  const doing = flatTasks.filter(task => task.status === '진행').length
-  const waiting = flatTasks.filter(task => task.status === '대기').length
+  const total = dashboardTasks.length
+  const done = dashboardTasks.filter(
+    task => task.status === '완료'
+  ).length
+
+  const doing = dashboardTasks.filter(
+    task => task.status === '진행'
+  ).length
+
+  const waiting = dashboardTasks.filter(
+    task => task.status === '대기'
+  ).length
 
   const completionRate = total === 0 ? 0 : Math.round((done / total) * 1000) / 10
-  const projectSummary = projects.map(project => {
-    const count = project.tasks.length
-    const percent = total === 0 ? 0 : Math.round((count / total) * 1000) / 10
-    return {
-      name: project.name || '이름없는 프로젝트',
-      count,
-      percent,
-    }
-  })
+  const rawProjectSummary = projects
+    .map(project => {
+      const count = dashboardTasks.filter(
+        task => task.projectId === project.id
+      ).length
+      const percent =
+        total === 0 ? 0 : Math.round((count / total) * 1000) / 10
+      return {
+        name: project.name || '',
+        count,
+        percent,
+      }
+    })
+
+    .filter(item => item.name.trim() && item.count > 0)
+    const projectSummary =
+      rawProjectSummary.length > 0
+        ? rawProjectSummary
+        : [
+            {
+              name: '프로젝트 없음',
+              count: 0,
+              percent: 0,
+            },
+          ]
+    .filter(item => item.name !== '이름없는 프로젝트' && item.count > 0)
 
   const ownerSummary = Object.entries(
     flatTasks.reduce((acc, task) => {
@@ -565,6 +603,23 @@ export default function App() {
   )
     .map(([owner, count]) => ({ owner, count }))
     .sort((a, b) => b.count - a.count)
+
+  useEffect(() => {
+    if (!selectedOwner && ownerSummary.length > 0) {
+      setSelectedOwner(ownerSummary[0].owner)
+    }
+  }, [selectedOwner, ownerSummary])
+
+  useEffect(() => {
+    if (!selectedProjectId && projects.length > 0) {
+      setSelectedProjectId(projects[0].id)
+    }
+  }, [selectedProjectId, projects])
+
+
+
+
+
   const urgentTasks = flatTasks
     .map(task => {
       const dates = [...(task.redDates || []), ...(task.dates || [])].sort()
@@ -605,10 +660,6 @@ export default function App() {
 
         <h1>{page === 'planner' ? 'Project Planner' : 'Project Dashboard'}</h1>
 
-        <div className="top-icons">
-          <button>🔔</button>
-          <button>⚙️</button>
-        </div>
       </div>
 
       <div className="toolbar">
@@ -673,9 +724,6 @@ export default function App() {
                 localStorage.setItem('projectPlannerRangeEnd', e.target.value)
               }}
             />
-            
-            <button>📗 엑셀내보내기</button>
-            <button>📄 PDF 내보내기</button>
           </>
         )}
       </div>
@@ -945,6 +993,8 @@ export default function App() {
           projects={projects}
           selectedProjectId={selectedProjectId}
           setSelectedProjectId={setSelectedProjectId}
+          selectedOwner={selectedOwner}
+          setSelectedOwner={setSelectedOwner}
         />
       )}
 
@@ -1021,6 +1071,9 @@ function Dashboard({
   projects,
   selectedProjectId,
   setSelectedProjectId,
+  selectedOwner,
+  setSelectedOwner,
+  
 }) {
   const selectedProject =
     projects.find(project => project.id === selectedProjectId) || projects[0]
@@ -1035,6 +1088,32 @@ function Dashboard({
             return sum
           }, 0) / selectedTasks.length
         )
+  const ownerNames = [
+    ...new Set(
+      projects.flatMap(project =>
+        project.tasks
+          .map(task => task.owner)
+          .filter(owner => owner && owner.trim())
+      )
+    ),
+  ]
+  const activeOwner = selectedOwner || ownerNames[0] || ''
+
+  const ownerTasks = projects.flatMap(project =>
+    project.tasks
+      .filter(task => task.owner === activeOwner)
+      .map(task => ({
+        ...task,
+        projectName: project.name || '이름없는 프로젝트',
+      }))
+  )
+
+
+
+
+
+
+
   return (
     <div className="dashboard">
       <div className="dashboard-cards">
@@ -1069,18 +1148,24 @@ function Dashboard({
           <h3>프로젝트별 진행 현황</h3>
 
           <div className="donut-row">
-            <div className="donut project-donut"></div>
+            <div className={projectSummary.every(item => item.count === 0) ? 'donut project-donut empty' : 'donut project-donut'}></div>
 
             <div className="dashboard-legend">
-              {projectSummary.slice(0, 4).map(item => (
-                <div key={item.name}>
-                  <span className="legend-dot"></span>
-                  <span>{item.name}</span>
-                  <b>
-                    {item.count} ({item.percent}%)
-                  </b>
-                </div>
-              ))}
+
+              {(projectSummary.length > 0
+                ? projectSummary
+                : [{ name: '프로젝트 없음', count: 0, percent: 0 }]
+              )
+                .slice(0, 4)
+                .map(item => (
+                  <div key={item.name}>
+                    <span className="legend-dot"></span>
+                    <span>{item.name}</span>
+                    <b>
+                      {item.count} ({item.percent}%)
+                    </b>
+                  </div>
+                ))}
             </div>
           </div>
         </section>
@@ -1117,7 +1202,12 @@ function Dashboard({
           <div className="owner-bars">
             {ownerSummary.slice(0, 5).map(item => (
               <div className="owner-row" key={item.owner}>
-                <span>{item.owner}</span>
+                <button
+                  className="owner-click"
+                  onClick={() => setSelectedOwner(item.owner)}
+                >
+                  {item.owner}
+                </button>
                 <div>
                   <i style={{ width: `${Math.min(item.count * 8, 100)}%` }} />
                 </div>
@@ -1145,61 +1235,124 @@ function Dashboard({
         </section>
       </div>
 
-            <section className="project-board">
-        <div className="project-board-head">
-          <h3>프로젝트별 업무 현황</h3>
-          <strong>
-            {selectedProject?.name || '이름없는 프로젝트'} · 평균 진도율{' '}
-            {projectProgress}%
-          </strong>
-        </div>
-
-        <div className="project-bubbles">
-          {projects.map(project => (
-            <button
-              key={project.id}
-              className={selectedProject?.id === project.id ? 'active' : ''}
-              onClick={() => setSelectedProjectId(project.id)}
-            >
-              {project.name || '이름없는 프로젝트'}
-            </button>
-          ))}
-        </div>
-
-        <div className="project-task-table">
-          <div className="project-task-header">
-            <span>업무내용</span>
-            <span>상세내용</span>
-            <span>상태</span>
-            <span>진도율</span>
-            <span>담당자</span>
+        <div className="dashboard-detail-grid">
+        <section className="project-board">
+          <div className="project-board-head">
+            <h3>프로젝트별 업무 현황</h3>
+            <strong>
+              {selectedProject?.name || '이름없는 프로젝트'} · 평균 진도율{' '}
+              {projectProgress}%
+            </strong>
           </div>
 
-          {selectedTasks.length === 0 ? (
-            <div className="project-task-empty">업무가 없습니다.</div>
-          ) : (
-            selectedTasks.map(task => {
-              const progress =
-                task.status === '완료' ? 100 : task.status === '진행' ? 50 : 0
+          <div className="project-bubbles">
+            {projects
+              .filter(project => project.name && project.name.trim())
+              .map(project => (
+                <button
+                  key={project.id}
+                  className={selectedProject?.id === project.id ? 'active' : ''}
+                  onClick={() => setSelectedProjectId(project.id)}
+                >
+                  {project.name}
+                </button>
+              ))}
+          </div>
 
-              return (
-                <div className="project-task-row" key={task.id}>
-                  <span>{task.work}</span>
-                  <span>{task.title}</span>
-                  <span>{task.status || '대기'}</span>
-                  <span className="project-progress-cell">
-                  <div className="project-progress-bar">
-                    <i style={{ width: `${progress}%` }} />
+          <div className="project-task-table">
+            <div className="project-task-header">
+              <span>업무내용</span>
+              <span>상세내용</span>
+              <span>상태</span>
+              <span>진도율</span>
+              <span>담당자</span>
+            </div>
+
+            {selectedTasks.length === 0 ? (
+              <div className="project-task-empty">업무가 없습니다.</div>
+            ) : (
+              selectedTasks.map(task => {
+                const progress =
+                  task.status === '완료' ? 100 : task.status === '진행' ? 50 : 0
+
+                return (
+                  <div className="project-task-row" key={task.id}>
+                    <span>{task.work || '-'}</span>
+                    <span>{task.title || '-'}</span>
+                    <span>{task.status || '대기'}</span>
+
+                    <span className="project-progress-cell">
+                      <div className="project-progress-bar">
+                        <i style={{ width: `${progress}%` }} />
+                      </div>
+                      <b>{progress}%</b>
+                    </span>
+
+                    <span>{task.owner || '미지정'}</span>
                   </div>
-                  <b>{progress}%</b>
-                </span>
-                  <span>{task.owner || '미지정'}</span>
-                </div>
-              )
-            })
-          )}
-        </div>
-      </section>
+                )
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="project-board">
+          <div className="project-board-head">
+            <h3>담당자별 업무 현황</h3>
+            <strong>{selectedOwner}</strong>
+          </div>
+
+          <div className="project-bubbles">
+            {ownerNames.map(owner => (
+              <button
+                key={owner}
+                className={selectedOwner === owner ? 'active' : ''}
+                onClick={() => setSelectedOwner(owner)}
+              >
+                {owner}
+              </button>
+            ))}
+          </div>
+
+          <div className="project-task-table">
+            <div className="owner-task-header">
+              <span>프로젝트</span>
+              <span>업무내용</span>
+              <span>상세내용</span>
+              <span>상태</span>
+              <span>진도율</span>
+              <span>담당자</span>
+            </div>
+
+            {ownerTasks.length === 0 ? (
+              <div className="project-task-empty">업무가 없습니다.</div>
+            ) : (
+              ownerTasks.map(task => {
+                const progress =
+                  task.status === '완료' ? 100 : task.status === '진행' ? 50 : 0
+
+                return (
+                  <div className="owner-task-row" key={`${task.projectName}-${task.id}`}>
+                    <span>{task.projectName}</span>
+                    <span>{task.work || '-'}</span>
+                    <span>{task.title || '-'}</span>
+                    <span>{task.status || '대기'}</span>
+
+                    <span className="project-progress-cell">
+                      <div className="project-progress-bar">
+                        <i style={{ width: `${progress}%` }} />
+                      </div>
+                      <b>{progress}%</b>
+                    </span>
+
+                    <span>{task.owner || '미지정'}</span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </section>
+      </div>
 
       <p className="dashboard-note">* 위 데이터는 선택한 기간 기준입니다.</p>
     </div>

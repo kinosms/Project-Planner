@@ -43,6 +43,7 @@ h1 {
   border: 1px solid #aaa;
   background: white;
   cursor: pointer;
+  border-radius: 8px;
 }
 
 .toolbar button,
@@ -540,6 +541,7 @@ h1 {
 .page-tabs {
   margin-left: 10px;
   display: flex;
+  gap: 5px;
   z-index: 2;
 }
 
@@ -550,12 +552,16 @@ h1 {
   background: white;
   cursor: pointer;
   font-size: 13px;
+  transition: all 0.15s ease;
+  border-radius: 999px;
 }
 
 .page-tabs button.active {
   background: #374151;
   color: white;
   font-weight: 700;
+  border-color: #374151;
+  border-radius: 999px;
 }
 
 .header-row h1 {
@@ -566,21 +572,6 @@ h1 {
   font-size: 28px;
   font-weight: 700;
   white-space: nowrap;
-}
-
-.top-icons {
-  position: absolute;
-  right: 10px;
-  display: flex;
-  gap: 10px;
-  z-index: 2;
-}
-
-.top-icons button {
-  border: 0;
-  background: transparent;
-  font-size: 22px;
-  cursor: pointer;
 }
 
 .toolbar {
@@ -724,6 +715,10 @@ h1 {
 
 .legend-dot.green {
   background: #84cc16;
+}
+
+.project-donut.empty {
+  background: conic-gradient(#3b82f6 0 100%) !important;
 }
 
 /* =========================
@@ -870,7 +865,7 @@ h1 {
 }
 
 .project-progress-bar {
-  width: 110px;
+  width: 90px;
   height: 10px;
   background: #e5e7eb;
   border-radius: 999px;
@@ -885,6 +880,60 @@ h1 {
 }
 
 .project-progress-cell b {
-  min-width: 36px;
+  min-width: 34px;
   font-size: 12px;
+}
+
+.dashboard-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.project-board {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.owner-click {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.owner-click:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.owner-task-header,
+
+.owner-task-row {
+  display: grid;
+  grid-template-columns: 100px 130px 1fr 70px 150px 110px;
+  min-height: 34px;
+  align-items: center;
+}
+
+.owner-task-header {
+  background: #f3f4f6;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.owner-task-row {
+  border-top: 1px solid #eee;
+  font-size: 13px;
+}
+.owner-task-header span,
+.owner-task-row span {
+  padding: 0 10px;
 }

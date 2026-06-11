@@ -220,9 +220,6 @@ export default function App() {
     }, [])
 
 
-
-
-
   const moveNextCell = (e, projectId) => {
     if (e.key !== 'Enter' && e.key !== 'Tab') return
     if (e.nativeEvent.isComposing) return

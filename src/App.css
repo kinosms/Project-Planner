@@ -262,6 +262,10 @@ h1 {
   cursor: pointer;
 }
 
+
+
+
+
 .timeline-header {
   height: 60px;
   background: #fafafa;
@@ -270,6 +274,11 @@ h1 {
   position: sticky;
   top: 0;
   z-index: 25;
+}
+
+.planner,
+.timeline-panel {
+  overscroll-behavior: contain;
 }
 
 .month-row,
@@ -856,13 +865,30 @@ h1 {
 
 .urgent-row span {
   font-size: 13px;
-  line-height: 1;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.urgent-row em {
+  font-style: normal;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .urgent-row b {
   color: #dc2626;
   font-size: 13px;
   line-height: 1;
+}
+
+.urgent-row.clickable {
+  cursor: pointer;
+}
+
+.urgent-row.clickable:hover {
+  background: #f8fafc;
 }
 
 
@@ -876,6 +902,9 @@ h1 {
   border: 1px solid #ddd;
   border-radius: 8px;
   padding: 16px;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .project-board-head {
@@ -910,6 +939,37 @@ h1 {
   color: white;
   font-weight: 700;
 }
+
+.bubble-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.bubble-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.bubble-scroll .project-bubbles {
+  display: flex;
+  width: max-content;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.bubble-scroll .project-bubbles button {
+  flex-shrink: 0;
+}
+
+
+
+
+
+
+
 
 .project-task-table {
   border: 1px solid #e5e7eb;
@@ -972,18 +1032,11 @@ h1 {
 
 .dashboard-detail-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   margin-top: 12px;
 }
 
-.project-board {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 16px;
-  box-sizing: border-box;
-}
 
 .owner-click {
   border: 0;

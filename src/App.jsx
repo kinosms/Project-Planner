@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import {
   addMonths,
   eachDayOfInterval,
@@ -84,6 +84,46 @@ export default function App() {
   }
 
 
+
+  const taskRefs = useRef({})
+
+  const focusTask = task => {
+    setPage('planner')
+
+    setTimeout(() => {
+      const rowEl = taskRefs.current[task.id]
+      const plannerEl = document.querySelector('.planner')
+
+      if (!rowEl || !plannerEl) return
+
+      const plannerRect = plannerEl.getBoundingClientRect()
+      const rowRect = rowEl.getBoundingClientRect()
+
+      const currentScrollTop = plannerEl.scrollTop
+      const rowTopInPlanner =
+        rowRect.top - plannerRect.top + currentScrollTop
+
+      const targetDate =
+        task.dueDate || task.dates?.[0] || task.redDates?.[0]
+
+      const dayIndex = days.findIndex(
+        day => format(day, 'yyyy-MM-dd') === targetDate
+      )
+
+      const nextTop = Math.max(0, rowTopInPlanner - 240)
+
+      const nextLeft =
+        dayIndex >= 0
+          ? Math.max(0, dayIndex * 32 - plannerEl.clientWidth / 2 + 16)
+          : plannerEl.scrollLeft
+
+      plannerEl.scrollTo({
+        top: nextTop,
+        left: nextLeft,
+        behavior: 'smooth',
+      })
+    }, 150)
+  }
 
 
   const ownerSuggestions = [
@@ -687,6 +727,18 @@ export default function App() {
 
 
   const todayString = format(new Date(), 'yyyy-MM-dd')
+  const getTaskProgress = task => {
+    if (task.status === '완료') return 100
+    if (task.status === '대기') return 0
+    const taskDates = [...(task.dates || [])].sort()
+    if (taskDates.length === 0) return 0
+    const startDate = taskDates[0]
+    const endDate = taskDates[taskDates.length - 1]
+    if (todayString < startDate) return 0
+    if (todayString > endDate) return 100
+    const passedDays = taskDates.filter(date => date <= todayString).length
+    return Math.round((passedDays / taskDates.length) * 100)
+  }
   const isLastFridayOfMonth = day => {
     if (!isFriday(day)) return false
     const monthEnd = endOfMonth(day)
@@ -712,31 +764,23 @@ export default function App() {
 
   const completionRate = total === 0 ? 0 : Math.round((done / total) * 1000) / 10
   const projectProgressSummary = projects
-  .map(project => {
-    const tasks = dashboardTasks.filter(
-      task => task.projectId === project.id
-    )
-
-    if (!project.name?.trim() || tasks.length === 0) {
-      return null
-    }
-
-    const progress =
-      Math.round(
+    .map(project => {
+      const tasks = dashboardTasks.filter(
+        task => task.projectId === project.id
+      )
+      if (!project.name?.trim() || tasks.length === 0) return null
+      const progress = Math.round(
         tasks.reduce((sum, task) => {
-          if (task.status === '완료') return sum + 100
-          if (task.status === '진행') return sum + 50
-          return sum
+          return sum + getTaskProgress(task)
         }, 0) / tasks.length
       )
-
-    return {
-      name: project.name,
-      count: tasks.length,
-      progress,
-    }
-  })
-  .filter(Boolean)
+      return {
+        name: project.name,
+        count: tasks.length,
+        progress,
+      }
+    })
+    .filter(Boolean)
 
 const projectSummary =
   projectProgressSummary.length > 0
@@ -751,7 +795,7 @@ const projectSummary =
     .filter(item => item.name !== '이름없는 프로젝트' && item.count > 0)
 
   const ownerSummary = Object.entries(
-    flatTasks.reduce((acc, task) => {
+    dashboardTasks.reduce((acc, task) => {
       const owner = task.owner || '미지정'
       acc[owner] = (acc[owner] || 0) + 1
       return acc
@@ -849,7 +893,7 @@ const projectSummary =
             />
 
             <button onClick={toggleScheduleLock}>
-              {scheduleLocked ? '🔒 일정잠금' : '🔓 편집중'}
+              {scheduleLocked ? '🔒 잠금' : '🔓 편집중'}
             </button>
             <button onClick={saveAllToDB}>저장</button>
           </>
@@ -933,12 +977,14 @@ const projectSummary =
                       const isLastTaskInProject = taskIndex === project.tasks.length - 1
                       return (
                         <div
+                          ref={el => {
+                            if (el) taskRefs.current[task.id] = el
+                          }}
                           className={[
                             'task-row-fields',
                             isLastTaskInProject ? 'project-bottom-line' : '',
                           ].join(' ')}
                           key={task.id}
-
                         >
                         <input
                           className="table-input"
@@ -1170,6 +1216,8 @@ const projectSummary =
           setSelectedProjectId={setSelectedProjectId}
           selectedOwner={selectedOwner}
           setSelectedOwner={setSelectedOwner}
+          focusTask={focusTask}
+          getTaskProgress={getTaskProgress}
         />
       )}
 
@@ -1348,7 +1396,8 @@ function Dashboard({
   setSelectedProjectId,
   selectedOwner,
   setSelectedOwner,
-  
+  focusTask,
+  getTaskProgress,
 }) {
   const selectedProject =
     projects.find(project => project.id === selectedProjectId) || projects[0]
@@ -1489,8 +1538,11 @@ function Dashboard({
               <p className="empty-text">표시할 업무가 없습니다.</p>
             ) : (
               urgentTasks.map(task => (
-                <div key={task.id} className="urgent-row">
-                  <span>{task.title || task.work || '이름없는 업무'}</span>
+                <div key={task.id} className="urgent-row clickable" onClick={() => focusTask(task)}>
+                  <span>
+                    {task.title || task.work || '이름없는 업무'}
+                     <em>{task.owner || '미지정'}</em>
+                  </span>
                   <b>{task.dueDate.replaceAll('-', '.')}</b>
                 </div>
               ))
@@ -1536,8 +1588,7 @@ function Dashboard({
               <div className="project-task-empty">업무가 없습니다.</div>
             ) : (
               selectedTasks.map(task => {
-                const progress =
-                  task.status === '완료' ? 100 : task.status === '진행' ? 50 : 0
+                const progress = getTaskProgress(task)
 
                 return (
                   <div className="project-task-row" key={task.id}>
@@ -1566,16 +1617,18 @@ function Dashboard({
             <strong>{selectedOwner}</strong>
           </div>
 
-          <div className="project-bubbles">
-            {ownerNames.map(owner => (
-              <button
-                key={owner}
-                className={selectedOwner === owner ? 'active' : ''}
-                onClick={() => setSelectedOwner(owner)}
-              >
-                {owner}
-              </button>
-            ))}
+          <div className="bubble-scroll">
+            <div className="project-bubbles">
+              {ownerNames.map(owner => (
+                <button
+                  key={owner}
+                  className={selectedOwner === owner ? 'active' : ''}
+                  onClick={() => setSelectedOwner(owner)}
+                >
+                  {owner}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="project-task-table">
@@ -1592,8 +1645,7 @@ function Dashboard({
               <div className="project-task-empty">업무가 없습니다.</div>
             ) : (
               ownerTasks.map(task => {
-                const progress =
-                  task.status === '완료' ? 100 : task.status === '진행' ? 50 : 0
+                const progress = getTaskProgress(task)
 
                 return (
                   <div className="owner-task-row" key={`${task.projectName}-${task.id}`}>

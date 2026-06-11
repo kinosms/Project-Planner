@@ -893,7 +893,7 @@ const projectSummary =
             />
 
             <button onClick={toggleScheduleLock}>
-              {scheduleLocked ? '🔒 잠금' : '🔓 편집중'}
+              {scheduleLocked ? '🔒 잠금상태' : '🔓 편집중'}
             </button>
             <button onClick={saveAllToDB}>저장</button>
           </>

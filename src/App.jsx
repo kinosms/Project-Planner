@@ -85,6 +85,9 @@ export default function App() {
 
 
 
+
+
+
   const taskRefs = useRef({})
 
   const focusTask = task => {
@@ -727,7 +730,26 @@ export default function App() {
 
 
   const todayString = format(new Date(), 'yyyy-MM-dd')
+
+  const getDisplayStatus = task => {
+      // 완료는 무조건 수동 상태 유지
+      if (task.status === '완료') return '완료'
+      const taskDates = [...(task.dates || []), ...(task.redDates || [])].sort()
+      if (taskDates.length === 0) {
+        return task.status || '대기'
+      }
+      const startDate = taskDates[0]
+      const endDate = taskDates[taskDates.length - 1]
+      if (todayString < startDate) return '대기'
+      if (todayString >= startDate && todayString <= endDate) {
+        return '진행'
+      }
+      // 끝났지만 완료로 직접 바꾸지 않은 건 일단 진행으로 남김
+      return '진행'
+    }
+
   const getTaskProgress = task => {
+    const displayStatus = getDisplayStatus(task)
     if (task.status === '완료') return 100
     if (task.status === '대기') return 0
     const taskDates = [...(task.dates || [])].sort()
@@ -751,16 +773,15 @@ export default function App() {
 
   const total = dashboardTasks.length
   const done = dashboardTasks.filter(
-    task => task.status === '완료'
+    task => getDisplayStatus(task) === '완료'
   ).length
-
   const doing = dashboardTasks.filter(
-    task => task.status === '진행'
+    task => getDisplayStatus(task) === '진행'
+  ).length
+  const waiting = dashboardTasks.filter(
+    task => getDisplayStatus(task) === '대기'
   ).length
 
-  const waiting = dashboardTasks.filter(
-    task => task.status === '대기'
-  ).length
 
   const completionRate = total === 0 ? 0 : Math.round((done / total) * 1000) / 10
   const projectProgressSummary = projects
@@ -1076,10 +1097,10 @@ const projectSummary =
 
                         <div className="status-cell">
                           <div
-                            className={`status-pill status-${task.status}`}
+                            className={`status-pill status-${getDisplayStatus(task)}`}
                             onClick={() => cycleStatus(project.id, task.id)}
                           >
-                            {task.status}
+                            {getDisplayStatus(task)}
                           </div>
                         </div>
 
@@ -1229,6 +1250,7 @@ const projectSummary =
           setSelectedOwner={setSelectedOwner}
           focusTask={focusTask}
           getTaskProgress={getTaskProgress}
+          getDisplayStatus={getDisplayStatus}
         />
       )}
 
@@ -1409,6 +1431,7 @@ function Dashboard({
   setSelectedOwner,
   focusTask,
   getTaskProgress,
+  getDisplayStatus,
 }) {
   const selectedProject =
     projects.find(project => project.id === selectedProjectId) || projects[0]
@@ -1442,6 +1465,15 @@ function Dashboard({
         projectName: project.name || '이름없는 프로젝트',
       }))
   )
+
+  const ownerAvgProgress =
+  ownerTasks.length === 0
+    ? 0
+    : Math.round(
+        ownerTasks.reduce((sum, task) => {
+          return sum + getTaskProgress(task)
+        }, 0) / ownerTasks.length
+      )
 
 
 
@@ -1605,7 +1637,7 @@ function Dashboard({
                   <div className="project-task-row" key={task.id}>
                     <span>{task.work || '-'}</span>
                     <span>{task.title || '-'}</span>
-                    <span>{task.status || '대기'}</span>
+                    <span>{getDisplayStatus(task)}</span>
 
                     <span className="project-progress-cell">
                       <div className="project-progress-bar">
@@ -1622,9 +1654,13 @@ function Dashboard({
           </div>
         </section>
 
-        <section className="project-board">
+        <section className="project-board owner-board">
           <div className="project-board-head">
+
             <h3>담당자별 업무 현황</h3>
+            <strong>
+              {activeOwner || '미지정'} · 평균 수행율 {ownerAvgProgress}%
+            </strong>
           </div>
 
           <div className="bubble-scroll">
@@ -1662,7 +1698,7 @@ function Dashboard({
                     <span>{task.projectName}</span>
                     <span>{task.work || '-'}</span>
                     <span>{task.title || '-'}</span>
-                    <span>{task.status || '대기'}</span>
+                    <span>{getDisplayStatus(task)}</span>
 
                     <span className="project-progress-cell">
                       <div className="project-progress-bar">

@@ -613,35 +613,47 @@ h1 {
 ========================= */
 .topbar {
 
-  height: auto;
-
-  margin-bottom: 6px;
-
-  background: #f5f6fa;
-
   position: sticky;
 
   top: 0;
 
-  z-index: 100;
+  z-index: 50;
 
-  padding-top: env(safe-area-inset-top);
+  background: #f5f6fa;
+
+  height: 98px;
+
+  margin-bottom: 10px;
 
 }
 
 .header-row {
 
-  height: auto;
+  height: 48px;
 
-  flex-direction: column;
+  display: flex;
 
-  align-items: flex-start;
+  align-items: center;
 
-  gap: 4px;
+  position: relative;
 
-  padding-top: 6px;
+}
 
-  padding-bottom: 4px;
+.header-row h1 {
+
+  position: absolute;
+
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  margin: 0;
+
+  font-size: 28px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
 
 }
 
@@ -1294,10 +1306,11 @@ h1 {
   .planner {
     overflow: auto;
     -webkit-overflow-scrolling: touch;
-    min-height: calc(100dvh - 96px);
   }
 
   .planner-inner {
+    display: flex;
+    align-items: flex-start;
     min-width: max-content;
   }
 
@@ -1306,14 +1319,64 @@ h1 {
   }
 
   .info-panel {
-    position: static;
-    z-index: 1;
+
+    position: sticky;
+    left: 0;
+    z-index: 50;
+    width: 150px;
+    min-width: 150px;
+    background: white;
+    border-right: 2px solid #777;
+  }
+
+  .info-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+  }
+
+  .info-header {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+    grid-template-columns: 50px 100px;
+  }
+
+  .info-header div:nth-child(2) {
+    display: none;
+  }
+
+   .info-header div:nth-child(n+4) {
+    display: none;
+  }
+  
+  .task-row-fields .doc-cell,
+  .task-row-fields input[list='owner-suggestions'],
+  .task-row-fields .status-cell,
+  .task-row-fields .delete-btn {
+    display: none;
+  }
+
+  .project-cell {
+    width: 50px;
+    min-width: 50px;
+     max-width: 50px;
+  }
+
+  .info-panel {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+  }
+
+  .timeline-panel {
+    min-width: max-content;
   }
 
   .timeline-header {
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: 30;
   }
 
   .cell-memo {
@@ -1354,31 +1417,29 @@ h1 {
     font-size: 12px;
   }
 
-.toolbar {
+  .toolbar {
 
-  height: 34px;
+    height: 34px;
 
-  padding: 0;
+    padding: 0;
 
-  gap: 6px;
+    gap: 6px;
 
-  flex-wrap: nowrap;
+    flex-wrap: nowrap;
 
-  overflow-x: auto;
+    overflow-x: auto;
 
-  overflow-y: hidden;
+    overflow-y: hidden;
 
-  scrollbar-width: none;
+    scrollbar-width: none;
 
-  align-items: center;
+    align-items: center;
 
-}
+  }
 
-.toolbar::-webkit-scrollbar {
-
-  display: none;
-
-}
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
 
   .topbar::before {
     content: '';
@@ -1484,6 +1545,29 @@ h1 {
 
     min-width: 0;
 
+  }
+
+  .project-task-list {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+  }
+
+  .task-row-fields {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+    grid-template-columns: 100px;
+  }
+
+  .task-row-fields input {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .task-row-fields input:first-child {
+    display: none;
   }
 
   .project-task-header,

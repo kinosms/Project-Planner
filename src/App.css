@@ -979,11 +979,11 @@ h1 {
 .project-task-row {
   display: grid;
   grid-template-columns:
-  100px   /* 업무 */
-  1fr     /* 상세내용 */
-  100px   /* 상태 */
-  180px   /* 진도율 */
-  140px;  /* 담당자 */
+  80px   /* 업무 */
+  2fr     /* 상세내용 */
+  60px   /* 상태 */
+  150px   /* 진도율 */
+  120px;  /* 담당자 */
   min-height: 34px;
   align-items: center;
 }
@@ -1056,7 +1056,7 @@ h1 {
 .owner-task-header,
 .owner-task-row {
   display: grid;
-  grid-template-columns: 90px 70px 2fr 60px 150px 110px;
+  grid-template-columns: 90px 70px 2fr 60px 120px 110px;
   min-height: 34px;
   align-items: center;
 }
@@ -1423,11 +1423,8 @@ h1 {
   }
 
   .project-task-header,
-
   .project-task-row {
-
     grid-template-columns: 1fr 1.3fr 64px 120px;
-
   }
 
   .project-task-header span:nth-child(5),

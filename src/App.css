@@ -1264,16 +1264,19 @@ h1 {
 
   body {
     overflow: auto;
+    min-height: 100dvh;
   }
 
   .app {
     padding: 8px;
     overflow: auto;
+    min-height: 100dvh;
   }
 
   .planner {
     overflow: auto;
     -webkit-overflow-scrolling: touch;
+    min-height: calc(100dvh - 96px);
   }
 
   .planner-inner {
@@ -1294,7 +1297,7 @@ h1 {
     top: 0;
     z-index: 20;
   }
-  
+
   .cell-memo {
     z-index: 6;
   }
@@ -1356,7 +1359,7 @@ h1 {
 
   .dashboard {
     height: auto;
-    min-height: calc(100vh - 96px);
+    min-height: calc(100dvh - 96px);
     overflow: visible;
     padding: 0 0 120px 0;
   }
@@ -1445,17 +1448,31 @@ h1 {
 
   .owner-task-header,
   .owner-task-row {
-    grid-template-columns: 70px 50px 2fr 55px 90px 80px;
-
+    grid-template-columns: 70px 50px minmax(120px, 1fr) 55px 90px 80px;
   }
 
   .owner-task-header span,
   .owner-task-row span {
     font-size: 11px;
     padding: 0 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: keep-all;
   }
+
   .owner-task-row {
     min-height: 40px;
+  }
+
+  .owner-task-header span:nth-child(3),
+  .owner-task-row span:nth-child(3) {
+    white-space: normal;
+  }
+
+  .owner-task-header span:nth-child(4),
+  .owner-task-row span:nth-child(4) {
+    white-space: nowrap;
+    text-align: center;
   }
 
   .owner-task-header {

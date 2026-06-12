@@ -136,6 +136,16 @@ export default function App() {
   }
 
 
+
+
+  const isTooLongRange = (start, end) => {
+    const diffDays = Math.ceil(
+      (new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)
+    )
+    return diffDays < 0 || diffDays > 180
+  }
+
+
   const ownerSuggestions = [
     ...new Set(
       flatTasks
@@ -960,6 +970,11 @@ const projectSummary =
               type="date"
               value={rangeStart}
               onChange={e => {
+                const nextStart = e.target.value
+                if (!isValidRange(nextStart, rangeEnd)) {
+                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
+                  return
+                }
                 setSelectedRange(null)
                 setRangeStart(e.target.value)
                 localStorage.setItem('projectPlannerRangeStart', e.target.value)
@@ -971,6 +986,11 @@ const projectSummary =
               type="date"
               value={rangeEnd}
               onChange={e => {
+                const nextEnd = e.target.value
+                if (!isValidRange(rangeStart, nextEnd)) {
+                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
+                  return
+                }
                 setSelectedRange(null)
                 setRangeEnd(e.target.value)
                 localStorage.setItem('projectPlannerRangeEnd', e.target.value)
@@ -1013,6 +1033,12 @@ const projectSummary =
               type="date"
               value={rangeStart}
               onChange={e => {
+                const nextStart = e.target.value
+                if (!isValidRange(nextStart, rangeEnd)) {
+                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
+                  return
+                }
+                
                 setSelectedRange(null)
                 setRangeStart(e.target.value)
                 localStorage.setItem('projectPlannerRangeStart', e.target.value)
@@ -1025,6 +1051,11 @@ const projectSummary =
               type="date"
               value={rangeEnd}
               onChange={e => {
+                const nextStart = e.target.value
+                if (!isValidRange(nextStart, rangeEnd)) {
+                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
+                  return
+                }
                 setSelectedRange(null)
                 setRangeEnd(e.target.value)
                 localStorage.setItem('projectPlannerRangeEnd', e.target.value)

@@ -1410,8 +1410,32 @@ h1 {
     display: none;
   }
 
-  .toolbar button:nth-child(2) {
+    /* 플래너 편집 버튼 숨김 */
+  .toolbar button:nth-child(1),
+  .toolbar button:nth-child(2),
+  .toolbar button:nth-child(6),
+  .toolbar button:nth-child(8),
+  .toolbar button:nth-child(9) {
     display: none;
+  }
+
+   /* 프로젝트별 + 버튼 숨김 */
+  .add-task-btn {
+    display: none;
+  }
+
+    /* 표 입력 비활성화 느낌 */
+
+  .project-cell input,
+  .task-row-fields input {
+    pointer-events: none;
+    user-select: none;
+    cursor: default;
+    background: white;
+  }
+
+  .task-row-fields input:focus {
+    outline: none;
   }
 
   .page-tabs {

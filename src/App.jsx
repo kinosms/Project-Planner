@@ -894,24 +894,30 @@ const projectSummary =
             플래너
           </button>
         </div>
-
         <h1>{page === 'planner' ? 'Project Planner' : 'Project Dashboard'}</h1>
-
       </div>
 
       <div className="toolbar">
         {page === 'planner' ? (
           <>
-            <button onClick={addProject}>+ 프로젝트</button>
-            <button onClick={() => setCompactMode(!compactMode)}>
+            <button className="planner-mobile-hide" onClick={addProject}>
+              + 프로젝트
+            </button>
+            <button
+              className="planner-mobile-hide"
+              onClick={() => setCompactMode(!compactMode)}
+            >
               {compactMode ? '전체형' : '축소형'}
             </button>
             <button onClick={() => setRange('month')}>이번달</button>
             <button onClick={() => setRange('3months')}>최근3개월</button>
             <button onClick={() => setRange('6months')}>최근6개월</button>
-            <button onClick={addOneMonth}>+1개월</button>
+            <button className="planner-mobile-hide" onClick={addOneMonth}>
+              +1개월
+            </button>
 
             <input
+              className="planner-mobile-hide"
               type="date"
               value={rangeStart}
               onChange={e => {
@@ -921,6 +927,7 @@ const projectSummary =
             />
 
             <input
+              className="planner-mobile-hide"
               type="date"
               value={rangeEnd}
               onChange={e => {
@@ -929,10 +936,13 @@ const projectSummary =
               }}
             />
 
-            <button onClick={toggleScheduleLock}>
-              {scheduleLocked ? '🔒 잠금상태' : '🔓 편집중'}
+            <button className="planner-mobile-hide" onClick={toggleScheduleLock}>
+              {scheduleLocked ? '🔒 잠금상태' : '편집중'}
             </button>
-            <button onClick={saveAllToDB}>저장</button>
+
+            <button className="planner-mobile-hide" onClick={saveAllToDB}>
+              저장
+            </button>
           </>
         ) : (
           <>

@@ -1414,8 +1414,8 @@ h1 {
   .toolbar button:nth-child(1),
   .toolbar button:nth-child(2),
   .toolbar button:nth-child(6),
-  .toolbar button:nth-child(8),
-  .toolbar button:nth-child(9) {
+  .toolbar button:nth-child(7),
+  .toolbar button:nth-child(8) {
     display: none;
   }
 

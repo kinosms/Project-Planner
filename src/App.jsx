@@ -279,15 +279,14 @@ export default function App() {
       .limit(1)
 
     if (!settingError && settingRows?.[0]) {
-
-      setRangeStart('2026-06-01')
-
-      setRangeEnd('2026-08-31')
-
-      localStorage.setItem('projectPlannerRangeStart', '2026-06-01')
-
-      localStorage.setItem('projectPlannerRangeEnd', '2026-08-31')
-
+      const safeRange = normalizeRange(
+        settingRows[0].range_start,
+        settingRows[0].range_end
+      )
+      setRangeStart(safeRange.start)
+      setRangeEnd(safeRange.end)
+      localStorage.setItem('projectPlannerRangeStart', safeRange.start)
+      localStorage.setItem('projectPlannerRangeEnd', safeRange.end)
     }
 
     const { data: projectRows, error: projectError } = await supabase

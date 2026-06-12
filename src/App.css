@@ -1448,11 +1448,16 @@ h1 {
 
   .owner-task-header,
   .owner-task-row {
-    grid-template-columns: 70px 50px minmax(100px, 1fr) 55px 80px;
+    grid-template-columns: 70px minmax(100px, 1fr) 55px 80px;
   }
 
   .owner-task-header span:nth-child(6),
   .owner-task-row span:nth-child(6) {
+    display: none;
+  }
+
+  .owner-task-header span:nth-child(2),
+  .owner-task-row span:nth-child(2) {
     display: none;
   }
 

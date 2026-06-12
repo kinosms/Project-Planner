@@ -58,7 +58,12 @@ export default function App() {
     }))
   )
 
-  const dashboardTasks = flatTasks.filter(task => {
+  const validTasks = flatTasks.filter(task =>
+    task.projectName?.trim() !== '' ||
+    task.title?.trim() !== ''
+  )
+
+  const dashboardTasks = validTasks.filter(task => {
     const taskDates = [...(task.dates || []), ...(task.redDates || [])]
     return taskDates.some(date => date >= rangeStart && date <= rangeEnd)
   })

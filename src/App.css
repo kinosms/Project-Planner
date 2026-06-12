@@ -1410,6 +1410,10 @@ h1 {
     display: none;
   }
 
+  .toolbar button:nth-child(2) {
+    display: none;
+  }
+
   .page-tabs {
     margin-left: 0;
   }

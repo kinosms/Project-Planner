@@ -30,6 +30,8 @@ export default function App() {
   const [rangeEnd, setRangeEnd] = useState(() => {
     return localStorage.getItem('projectPlannerRangeEnd') || '2026-07-31'
   })
+  const [selectedRange, setSelectedRange] = useState('month')
+
   const [isPainting, setIsPainting] = useState(false)
   const [paintMode, setPaintMode] = useState(null)
   const [urlEditor, setUrlEditor] = useState(null)
@@ -522,6 +524,7 @@ export default function App() {
   }
 
   const setRange = mode => {
+    setSelectedRange(mode)
     if (mode === 'month') {
       const start = startOfMonth(new Date())
       const end = endOfMonth(new Date())
@@ -909,9 +912,24 @@ const projectSummary =
             >
               {compactMode ? '전체형' : '축소형'}
             </button>
-            <button onClick={() => setRange('month')}>이번달</button>
-            <button onClick={() => setRange('3months')}>최근3개월</button>
-            <button onClick={() => setRange('6months')}>최근6개월</button>
+            <button
+              className={selectedRange === 'month' ? 'active-range' : ''}
+              onClick={() => setRange('month')}
+            >
+              이번달
+            </button>
+            <button
+              className={selectedRange === '3months' ? 'active-range' : ''}
+              onClick={() => setRange('3months')}
+            >
+              최근3개월
+            </button>
+            <button
+              className={selectedRange === '6months' ? 'active-range' : ''}
+              onClick={() => setRange('6months')}
+            >
+              최근6개월
+            </button>
             <button className="planner-mobile-hide" onClick={addOneMonth}>
               +1개월
             </button>
@@ -946,11 +964,27 @@ const projectSummary =
           </>
         ) : (
           <>
-            <button onClick={() => updateRange('2026-01-01', '2026-12-31')}>
+            <button
+              className={selectedRange === 'all' ? 'active-range' : ''}
+              onClick={() => {
+                setSelectedRange('all')
+                updateRange('2026-01-01', '2026-12-31')
+              }}
+            >
               전체기간
             </button>
-            <button onClick={() => setRange('month')}>이번달</button>
-            <button onClick={() => setRange('3months')}>최근3개월</button>
+            <button
+              className={selectedRange === 'month' ? 'active-range' : ''}
+              onClick={() => setRange('month')}
+            >
+              이번달
+            </button>
+            <button
+              className={selectedRange === '3months' ? 'active-range' : ''}
+              onClick={() => setRange('3months')}
+            >
+              최근3개월
+            </button>
 
             <input
               type="date"
@@ -1730,8 +1764,6 @@ function Dashboard({
           </div>
         </section>
       </div>
-
-      <p className="dashboard-note">* 위 데이터는 선택한 기간 기준입니다.</p>
     </div>
   )
 }

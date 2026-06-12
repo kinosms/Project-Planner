@@ -57,6 +57,14 @@ h1 {
   -webkit-appearance: none;
 }
 
+
+.active-range {
+  background: #374151 !important;
+  color: white !important;
+  border-color: #374151 !important;
+  font-weight: 700;
+}
+
 .stats {
   margin-left: auto;
   display: flex;
@@ -1414,7 +1422,7 @@ h1 {
     display: none;
   }
 
-  
+
    /* 프로젝트별 + 버튼 숨김 */
   .add-task-btn {
     display: none;

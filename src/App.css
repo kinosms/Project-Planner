@@ -1304,28 +1304,33 @@ h1 {
   }
 
   .planner {
-  overflow-y: auto;
-  overflow-x: hidden;
-  touch-action: pan-y;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: none;
-}
+    overflow: auto;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
 
   .planner-inner {
     display: flex;
     align-items: flex-start;
-    width: 100%;
-    min-width: 0;
+    min-width: max-content;
   }
 
   .timeline-panel {
     overscroll-behavior-x: contain;
     overscroll-behavior-y: auto;
     touch-action: pan-x pan-y;
+    min-width: max-content;
   }
 
   .info-panel {
-    flex: 0 0 150px;
+
+    position: sticky;
+    left: 0;
+    z-index: 50;
+    width: 150px;
+    min-width: 150px;
+    background: white;
+    border-right: 2px solid #777;
   }
 
   .info-sticky-header {
@@ -1369,13 +1374,7 @@ h1 {
   }
 
   .timeline-panel {
-    flex: 1;
-    min-width: 0;
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    touch-action: pan-x;
+    min-width: max-content;
   }
 
   .timeline-header {

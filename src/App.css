@@ -1336,13 +1336,24 @@ h1 {
     font-size: 12px;
   }
 
-  .toolbar {
+  .topbar {
     height: auto;
-    padding: 0;
-    gap: 6px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
+    margin-bottom: 8px;
+    background: #f5f6fa;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .topbar::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -80px;
+    height: 80px;
+    background: #f5f6fa;
   }
 
   .toolbar::-webkit-scrollbar {

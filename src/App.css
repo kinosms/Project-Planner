@@ -1305,7 +1305,8 @@ h1 {
 
   .planner {
     overflow: auto;
-    touch-action: pan-y;
+    touch-action: pan-x pan-y;
+    overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -1316,11 +1317,9 @@ h1 {
   }
 
   .timeline-panel {
-    overscroll-behavior-x: contain;
-    overscroll-behavior-y: auto;
-    touch-action: pan-x pan-y;
     min-width: max-content;
-  }
+    overscroll-behavior: contain;
+    }
 
   .info-panel {
 

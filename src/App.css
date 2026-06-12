@@ -1437,32 +1437,30 @@ h1 {
 
   .owner-task-header,
   .owner-task-row {
-    grid-template-columns: 80px 80px 1fr 56px 110px;
+    grid-template-columns: 70px 50px 2fr 55px 90px 80px;
 
   }
 
-  .owner-task-header span:nth-child(6),
+  .owner-task-header span,
+  .owner-task-row span {
+    font-size: 11px;
+    padding: 0 4px;
+  }
+  .owner-task-row {
+    min-height: 40px;
+  }
 
-  .owner-task-row span:nth-child(6) {
-
-    display: none;
-
+  .owner-task-header {
+    min-height: 36px;
   }
 
   .project-task-header span,
-
   .project-task-row span,
-
   .owner-task-header span,
-
   .owner-task-row span {
-
     padding: 0 6px;
-
     font-size: 12px;
-
     word-break: keep-all;
-
   }
 
   .project-progress-bar {
@@ -1485,9 +1483,4 @@ h1 {
 
   }
 
-    .owner-board {
-
-    display: none;
-
-  }
 }

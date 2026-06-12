@@ -1056,7 +1056,7 @@ h1 {
 .owner-task-header,
 .owner-task-row {
   display: grid;
-  grid-template-columns: 90px 80px 2fr 70px 150px 110px;
+  grid-template-columns: 90px 70px 2fr 60px 150px 110px;
   min-height: 34px;
   align-items: center;
 }

@@ -1304,18 +1304,24 @@ h1 {
   }
 
   .planner {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
 
   .planner-inner {
     display: flex;
     align-items: flex-start;
-    min-width: max-content;
+    min-width: 0;
   }
 
   .timeline-panel {
-  min-width: max-content;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
+    touch-action: pan-x pan-y;
+    min-width: max-content;
   }
 
   .info-panel {

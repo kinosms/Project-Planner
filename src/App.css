@@ -1424,7 +1424,7 @@ h1 {
 
   .project-task-header,
   .project-task-row {
-    grid-template-columns: 1fr 1.3fr 64px 120px;
+    grid-template-columns: 50px 2fr 55px 120px;
   }
 
   .project-task-header span:nth-child(5),

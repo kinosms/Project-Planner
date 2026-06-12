@@ -30,7 +30,7 @@ export default function App() {
   const [rangeEnd, setRangeEnd] = useState(() => {
     return localStorage.getItem('projectPlannerRangeEnd') || '2026-07-31'
   })
-  const [selectedRange, setSelectedRange] = useState('month')
+  const [selectedRange, setSelectedRange] = useState('')
 
   const [isPainting, setIsPainting] = useState(false)
   const [paintMode, setPaintMode] = useState(null)
@@ -939,6 +939,7 @@ const projectSummary =
               type="date"
               value={rangeStart}
               onChange={e => {
+                setSelectedRange(null)
                 setRangeStart(e.target.value)
                 localStorage.setItem('projectPlannerRangeStart', e.target.value)
               }}
@@ -949,6 +950,7 @@ const projectSummary =
               type="date"
               value={rangeEnd}
               onChange={e => {
+                setSelectedRange(null)
                 setRangeEnd(e.target.value)
                 localStorage.setItem('projectPlannerRangeEnd', e.target.value)
               }}
@@ -990,6 +992,7 @@ const projectSummary =
               type="date"
               value={rangeStart}
               onChange={e => {
+                setSelectedRange(null)
                 setRangeStart(e.target.value)
                 localStorage.setItem('projectPlannerRangeStart', e.target.value)
               }}
@@ -1001,6 +1004,7 @@ const projectSummary =
               type="date"
               value={rangeEnd}
               onChange={e => {
+                setSelectedRange(null)
                 setRangeEnd(e.target.value)
                 localStorage.setItem('projectPlannerRangeEnd', e.target.value)
               }}

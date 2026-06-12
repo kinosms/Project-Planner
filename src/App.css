@@ -612,19 +612,37 @@ h1 {
    PAGE TAB
 ========================= */
 .topbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
+
+  height: auto;
+
+  margin-bottom: 6px;
+
   background: #f5f6fa;
-  height: 98px;
-  margin-bottom: 10px;
+
+  position: sticky;
+
+  top: 0;
+
+  z-index: 100;
+
+  padding-top: env(safe-area-inset-top);
+
 }
 
 .header-row {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  position: relative;
+
+  height: auto;
+
+  flex-direction: column;
+
+  align-items: flex-start;
+
+  gap: 4px;
+
+  padding-top: 6px;
+
+  padding-bottom: 4px;
+
 }
 
 .page-tabs {
@@ -1336,15 +1354,31 @@ h1 {
     font-size: 12px;
   }
 
-  .topbar {
-    height: auto;
-    margin-bottom: 8px;
-    background: #f5f6fa;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    padding-top: env(safe-area-inset-top);
-  }
+.toolbar {
+
+  height: 34px;
+
+  padding: 0;
+
+  gap: 6px;
+
+  flex-wrap: nowrap;
+
+  overflow-x: auto;
+
+  overflow-y: hidden;
+
+  scrollbar-width: none;
+
+  align-items: center;
+
+}
+
+.toolbar::-webkit-scrollbar {
+
+  display: none;
+
+}
 
   .topbar::before {
     content: '';
@@ -1361,12 +1395,20 @@ h1 {
   }
 
   .toolbar button,
+
   .toolbar input {
-    flex-shrink: 0;
-    height: 28px;
-    font-size: 11px;
-    padding: 0 8px;
-  }
+
+      flex: 0 0 auto;
+
+      height: 28px;
+
+      font-size: 11px;
+
+      padding: 0 8px;
+
+      white-space: nowrap;
+
+    }
 
   .dashboard {
     height: auto;

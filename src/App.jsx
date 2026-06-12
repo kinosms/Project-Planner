@@ -253,6 +253,23 @@ export default function App() {
     alert('DB 저장 완료')
   }
 
+  const normalizeRange = (start, end) => {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  const diffDays = Math.ceil(
+    (endDate - startDate) / (1000 * 60 * 60 * 24)
+  )
+
+  if (!start || !end || diffDays < 0 || diffDays > 180) {
+    const safeStart = startOfMonth(new Date())
+    const safeEnd = endOfMonth(addMonths(new Date(), 2))
+    return {
+      start: format(safeStart, 'yyyy-MM-dd'),
+      end: format(safeEnd, 'yyyy-MM-dd'),
+    }
+  }
+  return { start, end }
+}
 
   const loadFromDB = async () => {
     const { data: settingRows, error: settingError } = await supabase
@@ -262,10 +279,16 @@ export default function App() {
       .limit(1)
 
     if (!settingError && settingRows?.[0]) {
-      setRangeStart(settingRows[0].range_start)
-      setRangeEnd(settingRows[0].range_end)
-      localStorage.setItem('projectPlannerRangeStart', settingRows[0].range_start)
-      localStorage.setItem('projectPlannerRangeEnd', settingRows[0].range_end)
+      const safeRange = normalizeRange(
+      setRangeStart('2026-06-01'),
+      setRangeEnd('2026-08-31')
+      /*settingRows[0].range_start,
+      settingRows[0].range_end*/
+    )
+    setRangeStart(safeRange.start)
+    setRangeEnd(safeRange.end)
+    localStorage.setItem('projectPlannerRangeStart', safeRange.start)
+    localStorage.setItem('projectPlannerRangeEnd', safeRange.end)
     }
 
     const { data: projectRows, error: projectError } = await supabase

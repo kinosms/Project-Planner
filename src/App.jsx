@@ -279,12 +279,12 @@ export default function App() {
       .limit(1)
 
     if (!settingError && settingRows?.[0]) {
-      const safeRange = normalizeRange(
+      /*const safeRange = normalizeRange(*/
       setRangeStart('2026-06-01'),
       setRangeEnd('2026-08-31')
       /*settingRows[0].range_start,
       settingRows[0].range_end*/
-    )
+    
     setRangeStart(safeRange.start)
     setRangeEnd(safeRange.end)
     localStorage.setItem('projectPlannerRangeStart', safeRange.start)

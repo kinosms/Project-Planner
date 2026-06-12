@@ -971,13 +971,15 @@ const projectSummary =
               value={rangeStart}
               onChange={e => {
                 const nextStart = e.target.value
-                if (!isValidRange(nextStart, rangeEnd)) {
-                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
-                  return
-                }
+
                 setSelectedRange(null)
                 setRangeStart(e.target.value)
                 localStorage.setItem('projectPlannerRangeStart', e.target.value)
+
+                if (!isValidRange(rangeStart, nextEnd)) {
+                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
+                  return
+                }
               }}
             />
 
@@ -987,13 +989,15 @@ const projectSummary =
               value={rangeEnd}
               onChange={e => {
                 const nextEnd = e.target.value
+
+                setSelectedRange(null)
+                setRangeEnd(e.target.value)
+                localStorage.setItem('projectPlannerRangeEnd', e.target.value)
+
                 if (!isValidRange(rangeStart, nextEnd)) {
                   alert('조회 기간은 최대 180일까지 설정할 수 있어.')
                   return
                 }
-                setSelectedRange(null)
-                setRangeEnd(e.target.value)
-                localStorage.setItem('projectPlannerRangeEnd', e.target.value)
               }}
             />
 
@@ -1034,14 +1038,14 @@ const projectSummary =
               value={rangeStart}
               onChange={e => {
                 const nextStart = e.target.value
-                if (!isValidRange(nextStart, rangeEnd)) {
-                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
-                  return
-                }
                 
                 setSelectedRange(null)
                 setRangeStart(e.target.value)
                 localStorage.setItem('projectPlannerRangeStart', e.target.value)
+                if (!isValidRange(nextStart, rangeEnd)) {
+                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
+                  return
+                }
               }}
             />
 
@@ -1052,13 +1056,14 @@ const projectSummary =
               value={rangeEnd}
               onChange={e => {
                 const nextStart = e.target.value
+
+                setSelectedRange(null)
+                setRangeEnd(e.target.value)
+                localStorage.setItem('projectPlannerRangeEnd', e.target.value)
                 if (!isValidRange(nextStart, rangeEnd)) {
                   alert('조회 기간은 최대 180일까지 설정할 수 있어.')
                   return
                 }
-                setSelectedRange(null)
-                setRangeEnd(e.target.value)
-                localStorage.setItem('projectPlannerRangeEnd', e.target.value)
               }}
             />
           </>

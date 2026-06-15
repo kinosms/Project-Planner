@@ -1755,13 +1755,13 @@ function Dashboard({
   dashboardTasks,
 }) {
 
-  const dashboardProjects = hideCompletedProjects
-  ? projects.filter(project => {
-      const tasks = project.tasks || []
-      if (tasks.length === 0) return true
-      return !tasks.every(task => task.status === '완료')
-    })
-  : projects
+  const dashboardProjectIds = [
+    ...new Set(dashboardTasks.map(task => task.projectId)),
+  ]
+
+  const dashboardProjects = projects.filter(project =>
+    dashboardProjectIds.includes(project.id)
+  )
 
   const selectedProject =
     dashboardProjects.find(project => project.id === selectedProjectId) ||

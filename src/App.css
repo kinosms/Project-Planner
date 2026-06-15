@@ -1777,7 +1777,7 @@ h1 {
 .history-table-header,
 .history-table-row {
   display: grid;
-  grid-template-columns: 260px minmax(520px, 1.8fr) 220px 260px 140px;
+  grid-template-columns: 260px 140px minmax(520px, 1.8fr) 220px 260px ;
   gap: 18px;
   align-items: center;
 }
@@ -1808,4 +1808,12 @@ h1 {
   text-align: center;
   color: #64748b;
   font-size: 14px;
+}
+
+.history-table-row.clickable {
+  cursor: pointer;
+}
+
+.history-table-row.clickable:hover {
+  background: #f8fafc;
 }

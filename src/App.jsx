@@ -187,6 +187,34 @@ export default function App() {
     }, 300)
   }
 
+  const focusHistory = history => {
+    const targetProject = visibleProjects.find(project =>
+      project.name === history.project_name
+    )
+    if (!targetProject) return
+    const targetTask = targetProject.tasks.find(task => {
+      const sameWork =
+        (task.work || '') === (history.task_work || '')
+      const sameTitle =
+        (task.title || '') === (history.task_title || '')
+      return sameWork && sameTitle
+    })
+    if (!targetTask) return
+    focusTask({
+      ...targetTask,
+      projectId: targetProject.id,
+      projectName: targetProject.name,
+    })
+  }
+
+
+
+
+
+
+
+
+
   
 
   
@@ -1618,7 +1646,10 @@ const projectSummary =
         />
         ) : window.innerWidth > 768 ? (
 
-         <History histories={histories} />
+         <History
+          histories={histories}
+          focusHistory={focusHistory}
+        />
 
         ) : null}
 
@@ -2120,7 +2151,7 @@ function Dashboard({
   )
 }
 
-function History({histories})  
+function History({ histories, focusHistory }) 
   {
   return (
     <div className="history-page">
@@ -2128,31 +2159,43 @@ function History({histories})
         <div className="history-table">
           <div className="history-table-header">
             <span>시간</span>
+            <span>항목</span>
             <span>변경 내용</span>
             <span>프로젝트</span>
             <span>업무</span>
-            <span>항목</span>
           </div>
           {histories.length === 0 ? (
             <div className="history-empty">수정 이력이 없습니다.</div>
           ) : (
-            histories.map(history => (
-              <div className="history-table-row" key={history.id}>
-                <span>
-                  {new Date(history.created_at).toLocaleString()}
-                </span>
-                <span>
-                  {(history.before_value || '-') +
-                    ' → ' +
-                    (history.after_value || '-')}
-                </span>
-                <span>{history.project_name || '-'}</span>
-                <span>
-                  {history.task_work || history.task_title || '-'}
-                </span>
-                <span>{history.field_name || history.action || '-'}</span>
-              </div>
-            ))
+            histories.map(history => {
+              const isFocusableHistory =
+                !['업무 삭제', '프로젝트 삭제', '업무 추가', '프로젝트 추가'].includes(
+                  history.action
+                )
+              return (
+                <div
+                  className={[
+                    'history-table-row',
+                    isFocusableHistory ? 'clickable' : '',
+                  ].join(' ')}
+                  key={history.id}
+                  onClick={() => {
+                    if (!isFocusableHistory) return
+                    focusHistory(history)
+                  }}
+                >
+                  <span>{new Date(history.created_at).toLocaleString()}</span>
+                  <span>{history.field_name || history.action || '-'}</span>
+                  <span>
+                    {(history.before_value || '-') +
+                      ' → ' +
+                      (history.after_value || '-')}
+                  </span>
+                  <span>{history.project_name || '-'}</span>
+                  <span>{history.task_work || history.task_title || '-'}</span>
+                </div>
+              )
+            })
           )}
         </div>
       </section>

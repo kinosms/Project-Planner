@@ -961,6 +961,7 @@ h1 {
 .urgent-row.clickable {
   color: #2563eb;
   font-weight: 600;
+  cursor: pointer;
 }
 
 .urgent-row.clickable:hover {

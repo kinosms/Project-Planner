@@ -126,40 +126,47 @@ export default function App() {
       const rowEl = taskRefs.current[task.id]
       const plannerEl = document.querySelector('.planner')
 
-      if (!rowEl || !plannerEl) return
+        if (!rowEl || !plannerEl) return
 
-      const plannerRect = plannerEl.getBoundingClientRect()
-      const rowRect = rowEl.getBoundingClientRect()
+        const targetDate =
+          task.dueDate || task.dates?.[0] || task.redDates?.[0]
 
-      const currentScrollTop = plannerEl.scrollTop
-      const rowTopInPlanner =
-        rowRect.top - plannerRect.top + currentScrollTop
+        const dayIndex = days.findIndex(
+          day => format(day, 'yyyy-MM-dd') === targetDate
+        )
 
-      const targetDate =
-        task.dueDate || task.dates?.[0] || task.redDates?.[0]
+        const plannerRect = plannerEl.getBoundingClientRect()
+        const rowRect = rowEl.getBoundingClientRect()
 
-      const dayIndex = days.findIndex(
-        day => format(day, 'yyyy-MM-dd') === targetDate
-      )
+        const currentScrollTop = plannerEl.scrollTop
+        const rowTopInPlanner =
+          rowRect.top - plannerRect.top + currentScrollTop
 
-      const nextTop = Math.max(0, rowTopInPlanner - 240)
+        const nextTop = Math.max(
+          0,
+          rowTopInPlanner - plannerEl.clientHeight * 0.4
+        )
 
-      const nextLeft =
-        dayIndex >= 0
-          ? Math.max(0, dayIndex * 32 - plannerEl.clientWidth / 2 + 16)
-          : plannerEl.scrollLeft
+        const nextLeft =
+          dayIndex >= 0
+            ? Math.max(
+                0,
+                dayIndex * 32 - plannerEl.clientWidth / 2 + 16
+              )
+            : plannerEl.scrollLeft
 
-      plannerEl.scrollTo({
-        top: nextTop,
-        left: nextLeft,
-        behavior: 'smooth',
-      })
+        plannerEl.scrollTo({
+          top: nextTop,
+          left: nextLeft,
+          behavior: 'smooth',
+        })
 
       setHighlightTaskId(task.id)
-        setTimeout(() => {
-          setHighlightTaskId(null)
-        }, 2000)
-    }, 150)
+
+      setTimeout(() => {
+        setHighlightTaskId(null)
+      },5000)
+    }, 300)
   }
 
   
@@ -599,19 +606,32 @@ const loadFromDB = async () => {
   }, [])
   
   useEffect(() => {
-    if (!selectedRange) return
-    const plannerEl = document.querySelector('.planner')
-    if (!plannerEl) return
-    const currentMonth = format(new Date(), 'yyyy-MM')
-    const currentMonthIndex = days.findIndex(
-        day => format(day, 'yyyy-MM') === format(new Date(), 'yyyy-MM')
-      )
-    if (currentMonthIndex < 0) return
-    plannerEl.scrollTo({
-      left: Math.max(0, currentMonthIndex * 32 - 160),
-      behavior: 'smooth',
-    })
-    }, )
+
+  if (page !== 'planner') return
+
+  if (!selectedRange) return
+
+  const plannerEl = document.querySelector('.planner')
+
+  if (!plannerEl) return
+
+  const currentMonthIndex = days.findIndex(
+
+    day => format(day, 'yyyy-MM') === format(new Date(), 'yyyy-MM')
+
+  )
+
+  if (currentMonthIndex < 0) return
+
+  plannerEl.scrollTo({
+
+    left: Math.max(0, currentMonthIndex * 32 - 160),
+
+    behavior: 'smooth',
+
+  })
+
+}, [page, selectedRange, days])
 
 
   const moveNextCell = (e, projectId) => {
@@ -1845,17 +1865,9 @@ function Dashboard({
           <div className="project-progress-list">
             {projectSummary.slice(0, 5).map(item => (
               <div className="project-progress-row" key={item.name}>
-                <button
-                  className="project-progress-click"
-                  onClick={() => {
-                    const targetProject = projects.find(project => project.name === item.name)
-                    if (targetProject) {
-                      setSelectedProjectId(targetProject.id)
-                    }
-                  }}
-                >
+                <span className="project-progress-name">
                   {item.name}
-                </button>
+                </span>
                 <div className="project-progress-track">
                   <i style={{ width: `${item.progress}%` }} />
                 </div>

@@ -386,6 +386,8 @@ h1 {
   border-right: 1px solid #d6d6d6;
   box-sizing: border-box;
   cursor: crosshair;
+  position: relative;
+  overflow: hidden;
 }
 
 .planner.locked .grid-cell {
@@ -1223,7 +1225,7 @@ h1 {
   line-height: 1.4;
 
   pointer-events: none;
-  z-index: 100;
+  z-index: 20;
 
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.22);
 }
@@ -1236,14 +1238,6 @@ h1 {
   text-overflow: ellipsis;
 }
 
-.grid-cell {
-  position: relative;
-  overflow: visible;
-}
-
-/* =========================
-   메모장 모달
-========================= */
 
 .memo-modal {
   width: 420px;
@@ -1424,7 +1418,7 @@ h1 {
   .timeline-header {
     position: sticky;
     top: 0;
-    z-index: 30;
+    z-index: 50;
   }
 
   .cell-memo {

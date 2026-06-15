@@ -1885,7 +1885,7 @@ function Dashboard({
           <h3>담당자별 업무 수</h3>
 
           <div className="owner-bars">
-            {ownerSummary.slice(0, 5).map(item => (
+            {ownerSummary.map(item => (
               <div className="owner-row" key={item.owner}>
                 <button
                   className="owner-click"

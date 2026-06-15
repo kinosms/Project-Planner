@@ -1124,7 +1124,7 @@ const projectSummary =
 
 
 
-  const urgentTasks = flatTasks
+  const urgentTasks = dashboardTasks
   .map(task => {
     const dates = [...(task.redDates || []), ...(task.dates || [])].sort()
     return {
@@ -1564,6 +1564,7 @@ const projectSummary =
           getDisplayStatus={getDisplayStatus}
           hideCompletedProjects={hideCompletedProjects}
           setHideCompletedProjects={setHideCompletedProjects}
+          dashboardTasks={dashboardTasks}
         />
         ) : window.innerWidth > 768 ? (
 
@@ -1751,6 +1752,7 @@ function Dashboard({
   getDisplayStatus,
   hideCompletedProjects,
   setHideCompletedProjects,
+  dashboardTasks,
 }) {
 
   const dashboardProjects = hideCompletedProjects
@@ -1764,7 +1766,9 @@ function Dashboard({
   const selectedProject =
     dashboardProjects.find(project => project.id === selectedProjectId) ||
     dashboardProjects[0]
-  const selectedTasks = selectedProject?.tasks || []
+  const selectedTasks = selectedProject
+    ? dashboardTasks.filter(task => task.projectId === selectedProject.id)
+    : []
   const projectProgress =
     selectedTasks.length === 0
       ? 0
@@ -1777,22 +1781,15 @@ function Dashboard({
         )
   const ownerNames = [
     ...new Set(
-      dashboardProjects.flatMap(project =>
-        project.tasks
-          .map(task => task.owner)
-          .filter(owner => owner && owner.trim())
-      )
+      dashboardTasks
+        .map(task => task.owner)
+        .filter(owner => owner && owner.trim())
     ),
   ]
   const activeOwner = selectedOwner || ownerNames[0] || ''
 
-  const ownerTasks = dashboardProjects.flatMap(project =>
-    project.tasks
-      .filter(task => task.owner === activeOwner)
-      .map(task => ({
-        ...task,
-        projectName: project.name || '이름없는 프로젝트',
-      }))
+  const ownerTasks = dashboardTasks.filter(
+    task => task.owner === activeOwner
   )
 
   const ownerAvgProgress =

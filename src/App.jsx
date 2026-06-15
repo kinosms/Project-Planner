@@ -579,8 +579,17 @@ const loadFromDB = async () => {
 
   setProjects(nextProjects)
   localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
-  setLoadedProjects(JSON.parse(JSON.stringify(nextProjects))
-  )
+  setLoadedProjects(JSON.parse(JSON.stringify(nextProjects)))
+
+  const defaultStart = format(startOfMonth(addMonths(new Date(), -1)), 'yyyy-MM-dd')
+  const defaultEnd = format(endOfMonth(addMonths(new Date(), 1)), 'yyyy-MM-dd')
+
+  setSelectedRange('month')
+  setRangeStart(defaultStart)
+  setRangeEnd(defaultEnd)
+  localStorage.setItem('projectPlannerRangeStart', defaultStart)
+  localStorage.setItem('projectPlannerRangeEnd', defaultEnd)
+
   await loadHistories()
 }
 

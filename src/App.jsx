@@ -1845,7 +1845,17 @@ function Dashboard({
           <div className="project-progress-list">
             {projectSummary.slice(0, 5).map(item => (
               <div className="project-progress-row" key={item.name}>
-                <span>{item.name}</span>
+                <button
+                  className="project-progress-click"
+                  onClick={() => {
+                    const targetProject = projects.find(project => project.name === item.name)
+                    if (targetProject) {
+                      setSelectedProjectId(targetProject.id)
+                    }
+                  }}
+                >
+                  {item.name}
+                </button>
                 <div className="project-progress-track">
                   <i style={{ width: `${item.progress}%` }} />
                 </div>

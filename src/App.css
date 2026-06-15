@@ -217,6 +217,39 @@ h1 {
   z-index: 2;
 }
 
+
+.task-highlight {
+  animation: taskBlink 2s ease;
+}
+
+.task-highlight input,
+.task-highlight .doc-cell,
+.task-highlight .status-cell {
+  animation: taskBlink 2s ease;
+}
+
+@keyframes taskBlink {
+  0% {
+    background-color: #fff7a8;
+  }
+
+  25% {
+    background-color: #ffe766;
+  }
+
+  50% {
+    background-color: #fff7a8;
+  }
+
+  75% {
+    background-color: #ffe766;
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
 .doc-cell {
   display: grid;
   grid-template-columns: 1fr 28px;

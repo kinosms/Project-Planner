@@ -60,6 +60,8 @@ export default function App() {
     }))
   )
 
+  const [highlightTaskId, setHighlightTaskId] = useState(null)
+
   const validTasks = flatTasks.filter(task =>
     task.projectName?.trim() !== '' ||
     task.title?.trim() !== ''
@@ -132,18 +134,17 @@ export default function App() {
         left: nextLeft,
         behavior: 'smooth',
       })
+
+      setHighlightTaskId(task.id)
+        setTimeout(() => {
+          setHighlightTaskId(null)
+        }, 2000)
     }, 150)
   }
 
 
 
 
-  const isTooLongRange = (start, end) => {
-    const diffDays = Math.ceil(
-      (new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)
-    )
-    return diffDays < 0 || diffDays > 180
-  }
 
 
   const ownerSuggestions = [
@@ -263,24 +264,6 @@ export default function App() {
     alert('DB 저장 완료')
   }
 
-  const normalizeRange = (start, end) => {
-  const startDate = new Date(start)
-  const endDate = new Date(end)
-  const diffDays = Math.ceil(
-    (endDate - startDate) / (1000 * 60 * 60 * 24)
-  )
-
-  if (!start || !end || diffDays < 0 || diffDays > 180) {
-    const safeStart = startOfMonth(new Date())
-    const safeEnd = endOfMonth(addMonths(new Date(), 2))
-    return {
-      start: format(safeStart, 'yyyy-MM-dd'),
-      end: format(safeEnd, 'yyyy-MM-dd'),
-    }
-  }
-  return { start, end }
-}
-
   const loadFromDB = async () => {
     const { data: settingRows, error: settingError } = await supabase
       .from('planner_settings')
@@ -289,14 +272,14 @@ export default function App() {
       .limit(1)
 
     if (!settingError && settingRows?.[0]) {
-      const safeRange = normalizeRange(
-        settingRows[0].range_start,
-        settingRows[0].range_end
-      )
-      setRangeStart(safeRange.start)
-      setRangeEnd(safeRange.end)
-      localStorage.setItem('projectPlannerRangeStart', safeRange.start)
-      localStorage.setItem('projectPlannerRangeEnd', safeRange.end)
+      const dbStart = settingRows[0].range_start
+      const dbEnd = settingRows[0].range_end
+      if (dbStart && dbEnd) {
+        setRangeStart(dbStart)
+        setRangeEnd(dbEnd)
+        localStorage.setItem('projectPlannerRangeStart', dbStart)
+        localStorage.setItem('projectPlannerRangeEnd', dbEnd)
+      }
     }
 
     const { data: projectRows, error: projectError } = await supabase
@@ -361,11 +344,24 @@ export default function App() {
     localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
   }
 
-    useEffect(() => {
-
-      loadFromDB()
-
-    }, [])
+  useEffect(() => {
+    loadFromDB()
+  }, [])
+  
+  useEffect(() => {
+    if (!selectedRange) return
+    const plannerEl = document.querySelector('.planner')
+    if (!plannerEl) return
+    const currentMonth = format(new Date(), 'yyyy-MM')
+    const currentMonthIndex = days.findIndex(
+        day => format(day, 'yyyy-MM') === format(new Date(), 'yyyy-MM')
+      )
+    if (currentMonthIndex < 0) return
+    plannerEl.scrollTo({
+      left: Math.max(0, currentMonthIndex * 32 - 160),
+      behavior: 'smooth',
+    })
+    }, )
 
 
   const moveNextCell = (e, projectId) => {
@@ -555,33 +551,40 @@ export default function App() {
   }
 
   const setRange = mode => {
-    setSelectedRange(mode)
-    if (mode === 'month') {
-      const start = startOfMonth(new Date())
-      const end = endOfMonth(new Date())
-      updateRange(
-        format(start, 'yyyy-MM-dd'),
-        format(end, 'yyyy-MM-dd')
-      )
-    }
+  setSelectedRange(mode)
+  if (mode === 'month') {
+    const start = startOfMonth(addMonths(new Date(), -1))
+    const end = endOfMonth(addMonths(new Date(), 1))
+    updateRange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
+  }
+  if (mode === '3months') {
+    const start = startOfMonth(addMonths(new Date(), -2))
+    const end = endOfMonth(addMonths(new Date(), 1))
+    updateRange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
+  }
+  if (mode === '6months') {
+    const start = startOfMonth(addMonths(new Date(), -5))
+    const end = endOfMonth(addMonths(new Date(), 1))
+    updateRange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
+  }
+  scrollToCurrentMonth()
+}
 
-    if (mode === '3months') {
-      const end = endOfMonth(new Date())
-      const start = startOfMonth(addMonths(end, -2))
-      updateRange(
-        format(start, 'yyyy-MM-dd'),
-        format(end, 'yyyy-MM-dd')
-      )
-    }
+  const scrollToCurrentMonth = (startDate) => {
 
-    if (mode === '6months') {
-      const end = endOfMonth(new Date())
-      const start = startOfMonth(addMonths(end, -5))
-      updateRange(
-        format(start, 'yyyy-MM-dd'),
-        format(end, 'yyyy-MM-dd')
-      )
-    }
+    setTimeout(() => {
+      const plannerEl = document.querySelector('.timeline-panel')
+      if (!plannerEl) return
+      const start = startOfMonth(new Date(startDate))
+      const current = startOfMonth(new Date())
+      const diffMonths =
+        (current.getFullYear() - start.getFullYear()) * 12 +
+        (current.getMonth() - start.getMonth())
+      plannerEl.scrollTo({
+        left: Math.max(0, diffMonths * 22 * 32 - 160),
+        behavior: 'smooth',
+      })
+    }, 200)
   }
 
   const addOneMonth = () => {
@@ -965,42 +968,6 @@ const projectSummary =
               +1개월
             </button>
 
-            <input
-              className="planner-mobile-hide"
-              type="date"
-              value={rangeStart}
-              onChange={e => {
-                const nextStart = e.target.value
-
-                setSelectedRange(null)
-                setRangeStart(e.target.value)
-                localStorage.setItem('projectPlannerRangeStart', e.target.value)
-
-                if (!isValidRange(rangeStart, nextEnd)) {
-                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
-                  return
-                }
-              }}
-            />
-
-            <input
-              className="planner-mobile-hide"
-              type="date"
-              value={rangeEnd}
-              onChange={e => {
-                const nextEnd = e.target.value
-
-                setSelectedRange(null)
-                setRangeEnd(e.target.value)
-                localStorage.setItem('projectPlannerRangeEnd', e.target.value)
-
-                if (!isValidRange(rangeStart, nextEnd)) {
-                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
-                  return
-                }
-              }}
-            />
-
             <button className="planner-mobile-hide" onClick={toggleScheduleLock}>
               {scheduleLocked ? '🔒 잠금상태' : '편집중'}
             </button>
@@ -1032,40 +999,6 @@ const projectSummary =
             >
               최근3개월
             </button>
-
-            <input
-              type="date"
-              value={rangeStart}
-              onChange={e => {
-                const nextStart = e.target.value
-                
-                setSelectedRange(null)
-                setRangeStart(e.target.value)
-                localStorage.setItem('projectPlannerRangeStart', e.target.value)
-                if (!isValidRange(nextStart, rangeEnd)) {
-                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
-                  return
-                }
-              }}
-            />
-
-            <span className="toolbar-separator">~</span>
-
-            <input
-              type="date"
-              value={rangeEnd}
-              onChange={e => {
-                const nextStart = e.target.value
-
-                setSelectedRange(null)
-                setRangeEnd(e.target.value)
-                localStorage.setItem('projectPlannerRangeEnd', e.target.value)
-                if (!isValidRange(nextStart, rangeEnd)) {
-                  alert('조회 기간은 최대 180일까지 설정할 수 있어.')
-                  return
-                }
-              }}
-            />
           </>
         )}
       </div>
@@ -1124,6 +1057,7 @@ const projectSummary =
                           }}
                           className={[
                             'task-row-fields',
+                            highlightTaskId === task.id ? 'task-highlight' : '',
                             isLastTaskInProject ? 'project-bottom-line' : '',
                           ].join(' ')}
                           key={task.id}

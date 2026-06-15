@@ -37,7 +37,7 @@ export default function App() {
   const [paintMode, setPaintMode] = useState(null)
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
-  const [page, setPage] = useState('planner')
+  const [page, setPage] = useState('dashboard')
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '')
   const [selectedOwner, setSelectedOwner] = useState('')
   const [memoEditor, setMemoEditor] = useState(null)

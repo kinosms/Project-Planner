@@ -1976,11 +1976,11 @@ function Dashboard({
 
           <div className="project-task-table">
             <div className="project-task-header">
-              <span>업무내용</span>
+              <span>업무</span>
               <span>상세내용</span>
+              <span>참조</span>
               <span>상태</span>
               <span>진도율</span>
-              <span>담당자</span>
             </div>
 
             {selectedTasks.length === 0 ? (
@@ -1993,6 +1993,20 @@ function Dashboard({
                   <div className="project-task-row" key={task.id}>
                     <span>{task.work || '-'}</span>
                     <span>{task.title || '-'}</span>
+                    <span>
+                    {task.artifactUrl ? (
+                      <a
+                        href={task.artifactUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="task-doc-link"
+                      >
+                        {task.artifactName || '문서열기'}
+                      </a>
+                    ) : (
+                      '-'
+                    )}
+                  </span>
                     <span>{getDisplayStatus(task)}</span>
 
                     <span className="project-progress-cell">
@@ -2001,8 +2015,6 @@ function Dashboard({
                       </div>
                       <b>{progress}%</b>
                     </span>
-
-                    <span>{task.owner || '미지정'}</span>
                   </div>
                 )
               })
@@ -2036,7 +2048,7 @@ function Dashboard({
           <div className="project-task-table">
             <div className="owner-task-header">
               <span>프로젝트</span>
-              <span>업무내용</span>
+              <span>업무</span>
               <span>상세내용</span>
               <span>상태</span>
               <span>진도율</span>

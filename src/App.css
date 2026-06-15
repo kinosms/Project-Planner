@@ -888,10 +888,11 @@ h1 {
 ========================= */
 .owner-bars {
   height: 150px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 12px;
+  scrollbar-width: thin;
 }
 
 .owner-row {
@@ -922,9 +923,10 @@ h1 {
 
 .urgent-list {
   height: 150px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  scrollbar-width: thin;
 }
 
 .urgent-row {
@@ -1159,10 +1161,11 @@ h1 {
 
 .project-progress-list {
   height: 150px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   gap: 12px;
+  scrollbar-width: thin;
 }
 
 .project-progress-row {
@@ -1317,6 +1320,14 @@ h1 {
   color: #374151;
 }
 
+
+
+
+.project-progress-list::-webkit-scrollbar,
+.urgent-list::-webkit-scrollbar,
+.owner-bars::-webkit-scrollbar {
+  width: 4px;
+}
 
 
 

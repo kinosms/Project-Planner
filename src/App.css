@@ -924,7 +924,7 @@ h1 {
   height: 150px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .urgent-row {
@@ -1161,7 +1161,7 @@ h1 {
   height: 150px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
 }
 

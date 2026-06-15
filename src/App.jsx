@@ -151,7 +151,7 @@ export default function App() {
           dayIndex >= 0
             ? Math.max(
                 0,
-                dayIndex * 32 - plannerEl.clientWidth / 2 + 16
+                dayIndex * 32 - plannerEl.clientWidth * 0.35
               )
             : plannerEl.scrollLeft
 

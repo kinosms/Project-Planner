@@ -1920,7 +1920,7 @@ function Dashboard({
               <p className="empty-text">표시할 업무가 없습니다.</p>
               ) : (
                 urgentTasks.map(task => {
-                  const today = new Date(todayString)
+                  const today = new Date()
                   const due = new Date(task.dueDate)
 
                   today.setHours(0, 0, 0, 0)

@@ -1754,6 +1754,32 @@ h1 {
 
 }
 
+@media (max-width: 900px) {
+
+  .project-progress-click,
+
+  .urgent-row.clickable {
+
+    pointer-events: none;
+
+    cursor: default;
+
+  }
+
+  .project-progress-click:hover,
+
+  .urgent-row.clickable:hover {
+
+    color: inherit;
+
+    text-decoration: none;
+
+    background: transparent;
+
+  }
+
+}
+
 
 
 

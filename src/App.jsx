@@ -1918,17 +1918,35 @@ function Dashboard({
           <div className="urgent-list">
             {urgentTasks.length === 0 ? (
               <p className="empty-text">표시할 업무가 없습니다.</p>
-            ) : (
-              urgentTasks.map(task => (
-                <div key={task.id} className="urgent-row clickable" onClick={() => focusTask(task)}>
-                  <span>
-                    {task.title || task.work || '이름없는 업무'}
-                     <em>{task.owner || '미지정'}</em>
-                  </span>
-                  <b>{task.dueDate.replaceAll('-', '.')}</b>
-                </div>
-              ))
-            )}
+              ) : (
+                urgentTasks.map(task => {
+                  const today = new Date(todayString)
+                  const due = new Date(task.dueDate)
+
+                  today.setHours(0, 0, 0, 0)
+                  due.setHours(0, 0, 0, 0)
+                  const diffDays = Math.ceil
+                  (
+                    (due - today) / (1000 * 60 * 60 * 24)
+                  )
+
+                  return 
+                  (
+                    <div key={task.id} className="urgent-row clickable" onClick={() => focusTask(task)}>
+                      <span>
+                        {task.title || task.work || '이름없는 업무'}
+                        <em>{task.owner || '미지정'}</em>
+                      </span>
+                      <b>
+                        {task.dueDate.replaceAll('-', '.')}
+                        {' '}
+                        (D-{diffDays})
+                      </b>
+                    </div>
+                  )
+                })
+              )
+            }
           </div>
         </section>
       </div>

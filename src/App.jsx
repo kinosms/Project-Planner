@@ -1788,13 +1788,7 @@ function Dashboard({
             return sum
           }, 0) / selectedTasks.length
         )
-  const ownerNames = [
-    ...new Set(
-      dashboardTasks
-        .map(task => task.owner)
-        .filter(owner => owner && owner.trim())
-    ),
-  ]
+  const ownerNames = ownerSummary.map(item => item.owner)
   const activeOwner = selectedOwner || ownerNames[0] || ''
 
   const ownerTasks = dashboardTasks.filter(

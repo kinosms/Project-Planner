@@ -119,6 +119,24 @@ export default function App() {
 
   const taskRefs = useRef({})
 
+  const scrollToToday = () => {
+    setTimeout(() => {
+      const plannerEl = document.querySelector('.planner')
+      if (!plannerEl) return
+      const todayIndex = days.findIndex(
+        day => format(day, 'yyyy-MM-dd') === todayString
+      )
+      if (todayIndex < 0) return
+      plannerEl.scrollTo({
+        left: Math.max(
+          0,
+          todayIndex * 32 - plannerEl.clientWidth * 0.1
+        ),
+        behavior: 'smooth',
+      })
+    }, 300)
+  }
+
   const focusTask = task => {
     setPage('planner')
 
@@ -1196,7 +1214,10 @@ const projectSummary =
 
           <button
             className={page === 'planner' ? 'active' : ''}
-            onClick={() => setPage('planner')}
+            onClick={() => {
+              setPage('planner')
+              scrollToToday()
+            }}
           >
             플래너
           </button>

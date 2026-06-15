@@ -23,6 +23,7 @@ export default function App() {
 
 
   const [compactMode, setCompactMode] = useState(false)
+  const [hideCompletedProjects, setHideCompletedProjects] = useState(false)
   const [rangeStart, setRangeStart] = useState(() => {
   return localStorage.getItem('projectPlannerRangeStart') || '2026-04-01'
   })
@@ -30,7 +31,7 @@ export default function App() {
   const [rangeEnd, setRangeEnd] = useState(() => {
     return localStorage.getItem('projectPlannerRangeEnd') || '2026-07-31'
   })
-  const [selectedRange, setSelectedRange] = useState('')
+  const [selectedRange, setSelectedRange] = useState('month')
 
   const [isPainting, setIsPainting] = useState(false)
   const [paintMode, setPaintMode] = useState(null)
@@ -39,9 +40,9 @@ export default function App() {
   const [page, setPage] = useState('planner')
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '')
   const [selectedOwner, setSelectedOwner] = useState('')
-    const [memoEditor, setMemoEditor] = useState(null)
+  const [memoEditor, setMemoEditor] = useState(null)
 
-
+  const [histories, setHistories] = useState([])
   const days = useMemo(() => {
     return eachDayOfInterval({
       start: new Date(rangeStart),
@@ -52,13 +53,37 @@ export default function App() {
     })
   }, [rangeStart, rangeEnd])
 
-  const flatTasks = projects.flatMap(project =>
-    project.tasks.map(task => ({
-      ...task,
-      projectId: project.id,
-      projectName: project.name,
-    }))
-  )
+  const isProjectCompleted = project => {
+
+  const tasks = project.tasks || []
+
+  if (tasks.length === 0) return false
+
+  return tasks.every(task => task.status === '완료')
+
+    }
+
+    const visibleProjects = useMemo(() => {
+
+      if (!hideCompletedProjects) return projects
+
+      return projects.filter(project => !isProjectCompleted(project))
+
+    }, [projects, hideCompletedProjects])
+
+    const flatTasks = visibleProjects.flatMap(project =>
+
+      project.tasks.map(task => ({
+
+        ...task,
+
+        projectId: project.id,
+
+        projectName: project.name,
+
+      }))
+
+    )
 
   const [highlightTaskId, setHighlightTaskId] = useState(null)
 
@@ -91,11 +116,6 @@ export default function App() {
     setCustomHolidayDates(next)
     localStorage.setItem('projectPlannerCustomHolidayDates', JSON.stringify(next))
   }
-
-
-
-
-
 
   const taskRefs = useRef({})
 
@@ -142,9 +162,10 @@ export default function App() {
     }, 150)
   }
 
+  
 
-
-
+  
+  const [loadedProjects, setLoadedProjects] = useState([])
 
 
   const ownerSuggestions = [
@@ -160,8 +181,205 @@ export default function App() {
     localStorage.setItem('projectPlannerProjects', JSON.stringify(next))
   }
 
+  const saveChangeHistories = async () => {
+    const historyRows = []
+
+    loadedProjects.forEach(oldProject => {
+
+      const newProject = projects.find(p => p.id === oldProject.id)
+
+      // 프로젝트 삭제
+
+      if (!newProject) {
+
+        historyRows.push({
+
+          action: '프로젝트 삭제',
+
+          project_name: oldProject.name,
+
+        })
+
+        return
+
+      }
+
+      // 프로젝트명 변경
+
+      if (oldProject.name !== newProject.name) {
+
+        historyRows.push({
+
+          action: '프로젝트명 변경',
+
+          project_name: oldProject.name,
+
+          field_name: '프로젝트명',
+
+          before_value: oldProject.name,
+
+          after_value: newProject.name,
+
+        })
+
+      }
+
+      oldProject.tasks.forEach(oldTask => {
+
+        const newTask = newProject.tasks.find(t => t.id === oldTask.id)
+
+        // 업무 삭제
+
+        if (!newTask) {
+
+          historyRows.push({
+
+            action: '업무 삭제',
+
+            project_name: newProject.name,
+
+            task_work: oldTask.work,
+
+            task_title: oldTask.title,
+
+          })
+
+          return
+
+        }
+
+        ;[
+
+          ['work', '업무'],
+
+          ['title', '상세내용'],
+
+          ['owner', '담당자'],
+
+          ['status', '상태'],
+
+          ['artifactName', '문서명'],
+
+          ['artifactUrl', '문서URL'],
+
+        ].forEach(([key, label]) => {
+
+          if ((oldTask[key] || '') !== (newTask[key] || '')) {
+
+            historyRows.push({
+
+              action: '업무 정보 변경',
+
+              project_name: newProject.name,
+
+              task_work: newTask.work,
+
+              task_title: newTask.title,
+
+              field_name: label,
+
+              before_value: oldTask[key] || '',
+
+              after_value: newTask[key] || '',
+
+            })
+
+          }
+
+        })
+
+        const oldDates = [
+
+          ...(oldTask.dates || []),
+
+          ...(oldTask.redDates || []),
+
+        ].sort().join(',')
+
+        const newDates = [
+
+          ...(newTask.dates || []),
+
+          ...(newTask.redDates || []),
+
+        ].sort().join(',')
+
+        if (oldDates !== newDates) {
+
+          historyRows.push({
+
+            action: '일정 변경',
+
+            project_name: newProject.name,
+
+            task_work: newTask.work,
+
+            task_title: newTask.title,
+
+            field_name: '일정',
+
+            before_value: oldDates,
+
+            after_value: newDates,
+
+          })
+
+        }
+
+      })
+
+      // 업무 추가
+
+      newProject.tasks.forEach(newTask => {
+
+        const exists = oldProject.tasks.find(t => t.id === newTask.id)
+
+        if (!exists) {
+
+          historyRows.push({
+
+            action: '업무 추가',
+
+            project_name: newProject.name,
+
+            task_work: newTask.work,
+
+            task_title: newTask.title,
+
+          })
+
+        }
+
+      })
+
+    })
+
+    // 프로젝트 추가
+    projects.forEach(project => {
+      const exists = loadedProjects.find(p => p.id === project.id)
+      if (!exists) {
+        historyRows.push({
+          action: '프로젝트 추가',
+          project_name: project.name,
+        })
+      }
+    })
+
+    console.log('HISTORY_ROWS=', historyRows)
+    if (historyRows.length === 0) return
+    const { error } = await supabase
+      .from('planner_histories')
+      .insert(historyRows)
+      console.log('HISTORY_INSERT_ERROR=', error)
+    if (error) {
+      console.log('history save error=', error)
+    }
+  }
+
   const saveAllToDB = async () => {
     if (!confirm('현재 화면 데이터를 DB에 저장할까?')) return
+
+    await saveChangeHistories()
 
     const { error: deleteError } = await supabase
       .from('projects')
@@ -260,92 +478,115 @@ export default function App() {
       alert('보기 기간 저장 실패')
       return
     }
+    setLoadedProjects(JSON.parse(JSON.stringify(projects)))
+    await loadHistories()
 
     alert('DB 저장 완료')
   }
 
-  const loadFromDB = async () => {
-    const { data: settingRows, error: settingError } = await supabase
-      .from('planner_settings')
-      .select('*')
-      .eq('id', 1)
-      .limit(1)
 
-    if (!settingError && settingRows?.[0]) {
-      const dbStart = settingRows[0].range_start
-      const dbEnd = settingRows[0].range_end
-      if (dbStart && dbEnd) {
-        setRangeStart(dbStart)
-        setRangeEnd(dbEnd)
-        localStorage.setItem('projectPlannerRangeStart', dbStart)
-        localStorage.setItem('projectPlannerRangeEnd', dbEnd)
-      }
-    }
+  const loadHistories = async () => {
+  const { data, error } = await supabase
+    .from('planner_histories')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100)
 
-    const { data: projectRows, error: projectError } = await supabase
-      .from('projects')
-      .select('*')
-      .order('id', { ascending: true })
-
-    if (projectError) {
-      console.log('project load error=', projectError)
-      return
-    }
-
-    const { data: taskRows, error: taskError } = await supabase
-      .from('tasks')
-      .select('*')
-      .order('id', { ascending: true })
-
-    if (taskError) {
-      console.log('task load error=', taskError)
-      return
-    }
-
-    const { data: dateRows, error: dateError } = await supabase
-      .from('task_dates')
-      .select('*')
-      .order('work_date', { ascending: true })
-
-    if (dateError) {
-      console.log('date load error=', dateError)
-      return
-    }
-
-    const nextProjects = projectRows.map(project => ({
-      id: project.id,
-      name: project.name || '',
-      tasks: taskRows
-        .filter(task => task.project_id === project.id)
-        .map(task => ({
-          id: task.id,
-          work: task.work || '',
-          title: task.title || '',
-          owner: task.owner || '',
-          status: task.status || '대기',
-          artifactName: task.artifact_name || '',
-          artifactUrl: task.artifact_url || '',
-          dates: dateRows
-            .filter(date => date.task_id === task.id && date.color !== 'red')
-            .map(date => date.work_date),
-          redDates: dateRows
-            .filter(date => date.task_id === task.id && date.color === 'red')
-            .map(date => date.work_date),
-          memoDates: dateRows
-            .filter(date => date.task_id === task.id && date.memo)
-            .reduce((acc, date) => {
-              acc[date.work_date] = date.memo
-              return acc
-            }, {}),
-        })),
-    }))
-
-    setProjects(nextProjects)
-    localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
+  if (error) {
+    console.log('history load error=', error)
+    return
   }
+
+  setHistories(data || [])
+}
+
+const loadFromDB = async () => {
+  const { data: settingRows, error: settingError } = await supabase
+    .from('planner_settings')
+    .select('*')
+    .eq('id', 1)
+    .limit(1)
+
+  if (!settingError && settingRows?.[0]) {
+    const dbStart = settingRows[0].range_start
+    const dbEnd = settingRows[0].range_end
+
+    if (dbStart && dbEnd) {
+      setRangeStart(dbStart)
+      setRangeEnd(dbEnd)
+      localStorage.setItem('projectPlannerRangeStart', dbStart)
+      localStorage.setItem('projectPlannerRangeEnd', dbEnd)
+    }
+  }
+
+  const { data: projectRows, error: projectError } = await supabase
+    .from('projects')
+    .select('*')
+    .order('id', { ascending: true })
+
+  if (projectError) {
+    console.log('project load error=', projectError)
+    return
+  }
+
+  const { data: taskRows, error: taskError } = await supabase
+    .from('tasks')
+    .select('*')
+    .order('id', { ascending: true })
+
+  if (taskError) {
+    console.log('task load error=', taskError)
+    return
+  }
+
+  const { data: dateRows, error: dateError } = await supabase
+    .from('task_dates')
+    .select('*')
+    .order('work_date', { ascending: true })
+
+  if (dateError) {
+    console.log('date load error=', dateError)
+    return
+  }
+
+  const nextProjects = projectRows.map(project => ({
+    id: project.id,
+    name: project.name || '',
+    tasks: taskRows
+      .filter(task => task.project_id === project.id)
+      .map(task => ({
+        id: task.id,
+        work: task.work || '',
+        title: task.title || '',
+        owner: task.owner || '',
+        status: task.status || '대기',
+        artifactName: task.artifact_name || '',
+        artifactUrl: task.artifact_url || '',
+        dates: dateRows
+          .filter(date => date.task_id === task.id && date.color !== 'red')
+          .map(date => date.work_date),
+        redDates: dateRows
+          .filter(date => date.task_id === task.id && date.color === 'red')
+          .map(date => date.work_date),
+        memoDates: dateRows
+          .filter(date => date.task_id === task.id && date.memo)
+          .reduce((acc, date) => {
+            acc[date.work_date] = date.memo
+            return acc
+          }, {}),
+      })),
+  }))
+
+  setProjects(nextProjects)
+  localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
+  setLoadedProjects(JSON.parse(JSON.stringify(nextProjects))
+  )
+  await loadHistories()
+}
 
   useEffect(() => {
     loadFromDB()
+    loadHistories()
   }, [])
   
   useEffect(() => {
@@ -464,21 +705,21 @@ export default function App() {
   }
 
   const updateDateMemo = (projectId, taskId, date) => {
-  const currentTask = projects
-    .find(project => project.id === projectId)
-    ?.tasks.find(task => task.id === taskId)
-  setMemoEditor({
-    projectId,
-    taskId,
-    date,
-    memo: currentTask?.memoDates?.[date] || '',
-  })
-}
+    const currentTask = projects
+      .find(project => project.id === projectId)
+      ?.tasks.find(task => task.id === taskId)
+    setMemoEditor({
+      projectId,
+      taskId,
+      date,
+      memo: currentTask?.memoDates?.[date] || '',
+    })
+  }
 
 
 
 
-  const updateProjectName = (projectId, value) => {
+    const updateProjectName = (projectId, value) => {
     saveProjects(
       projects.map(project =>
         project.id === projectId ? { ...project, name: value } : project
@@ -598,11 +839,11 @@ export default function App() {
       return
     }
 
-    const password = prompt('갑옷거인의 인물 이름은?')
-    if (password === '라이너') {
+    const password = prompt('차력거인의 인물 이름은?')
+    if (password === '핑크핑거') {
       setScheduleLocked(false)
     } else {
-      alert('비밀번호가 맞지 않아')
+      alert('틀렸어요~')
     }
   }
 
@@ -826,7 +1067,7 @@ export default function App() {
 
 
   const completionRate = total === 0 ? 0 : Math.round((done / total) * 1000) / 10
-  const projectProgressSummary = projects
+  const projectProgressSummary = visibleProjects
     .map(project => {
       const tasks = dashboardTasks.filter(
         task => task.projectId === project.id
@@ -930,8 +1171,20 @@ const projectSummary =
           >
             플래너
           </button>
+          <button
+            className={`planner-mobile-hide ${page === 'history' ? 'active' : ''}`}
+            onClick={() => setPage('history')}
+          >
+            히스토리
+          </button>
         </div>
-        <h1>{page === 'planner' ? 'Project Planner' : 'Project Dashboard'}</h1>
+        <h1>
+          {page === 'planner'
+            ? 'Project Planner'
+            : page === 'dashboard'
+              ? 'Project Dashboard'
+              : 'Project History'}
+        </h1>
       </div>
 
       <div className="toolbar">
@@ -944,8 +1197,16 @@ const projectSummary =
               className="planner-mobile-hide"
               onClick={() => setCompactMode(!compactMode)}
             >
-              {compactMode ? '전체형' : '축소형'}
+              {compactMode ? '축소형' : '전체형'}
             </button>
+
+            <button
+              className="planner-mobile-hide"
+              onClick={() => setHideCompletedProjects(prev => !prev)}
+            >
+              {hideCompletedProjects ? '진행프로젝트' : '전체프로젝트'}
+            </button>
+
             <button
               className={selectedRange === 'month' ? 'active-range' : ''}
               onClick={() => setRange('month')}
@@ -999,6 +1260,12 @@ const projectSummary =
             >
               최근3개월
             </button>
+            <button
+              className="planner-mobile-hide"
+              onClick={() => setHideCompletedProjects(prev => !prev)}
+            >
+              {hideCompletedProjects ? '진행프로젝트' : '전체프로젝트'}
+            </button>
           </>
         )}
       </div>
@@ -1028,7 +1295,7 @@ const projectSummary =
                 </div>
               </div>
 
-              {projects.map(project => (
+              {visibleProjects.map(project => (
                 <div className="project-group" key={project.id}>
                   <div className="project-cell project-bottom-line">
                     <input
@@ -1215,7 +1482,7 @@ const projectSummary =
                 </div>
               </div>
 
-              {projects.map(project =>
+              {visibleProjects.map(project =>
                 project.tasks.map((task, taskIndex) => {
                   const isLastTaskInProject = taskIndex === project.tasks.length - 1
                   return (
@@ -1277,7 +1544,7 @@ const projectSummary =
             </div>
           </div>
         </div>
-        ) : (
+        ) : page === 'dashboard' ? (
         <Dashboard
           total={total}
           doing={doing}
@@ -1287,7 +1554,7 @@ const projectSummary =
           projectSummary={projectSummary}
           ownerSummary={ownerSummary}
           urgentTasks={urgentTasks}
-          projects={projects}
+          projects={visibleProjects}
           selectedProjectId={selectedProjectId}
           setSelectedProjectId={setSelectedProjectId}
           selectedOwner={selectedOwner}
@@ -1295,8 +1562,14 @@ const projectSummary =
           focusTask={focusTask}
           getTaskProgress={getTaskProgress}
           getDisplayStatus={getDisplayStatus}
+          hideCompletedProjects={hideCompletedProjects}
+          setHideCompletedProjects={setHideCompletedProjects}
         />
-      )}
+        ) : window.innerWidth > 768 ? (
+
+         <History histories={histories} />
+
+        ) : null}
 
       {urlEditor && (
         <div className="modal-backdrop">
@@ -1476,9 +1749,21 @@ function Dashboard({
   focusTask,
   getTaskProgress,
   getDisplayStatus,
+  hideCompletedProjects,
+  setHideCompletedProjects,
 }) {
+
+  const dashboardProjects = hideCompletedProjects
+  ? projects.filter(project => {
+      const tasks = project.tasks || []
+      if (tasks.length === 0) return true
+      return !tasks.every(task => task.status === '완료')
+    })
+  : projects
+
   const selectedProject =
-    projects.find(project => project.id === selectedProjectId) || projects[0]
+    dashboardProjects.find(project => project.id === selectedProjectId) ||
+    dashboardProjects[0]
   const selectedTasks = selectedProject?.tasks || []
   const projectProgress =
     selectedTasks.length === 0
@@ -1492,7 +1777,7 @@ function Dashboard({
         )
   const ownerNames = [
     ...new Set(
-      projects.flatMap(project =>
+      dashboardProjects.flatMap(project =>
         project.tasks
           .map(task => task.owner)
           .filter(owner => owner && owner.trim())
@@ -1501,7 +1786,7 @@ function Dashboard({
   ]
   const activeOwner = selectedOwner || ownerNames[0] || ''
 
-  const ownerTasks = projects.flatMap(project =>
+  const ownerTasks = dashboardProjects.flatMap(project =>
     project.tasks
       .filter(task => task.owner === activeOwner)
       .map(task => ({
@@ -1649,7 +1934,7 @@ function Dashboard({
           </div>
 
           <div className="project-bubbles">
-            {projects
+            {dashboardProjects
               .filter(project => project.name && project.name.trim())
               .map(project => (
                 <button
@@ -1759,6 +2044,46 @@ function Dashboard({
           </div>
         </section>
       </div>
+    </div>
+  )
+}
+
+function History({histories})  
+  {
+  return (
+    <div className="history-page">
+      <section className="history-board">
+        <div className="history-table">
+          <div className="history-table-header">
+            <span>시간</span>
+            <span>변경 내용</span>
+            <span>프로젝트</span>
+            <span>업무</span>
+            <span>항목</span>
+          </div>
+          {histories.length === 0 ? (
+            <div className="history-empty">수정 이력이 없습니다.</div>
+          ) : (
+            histories.map(history => (
+              <div className="history-table-row" key={history.id}>
+                <span>
+                  {new Date(history.created_at).toLocaleString()}
+                </span>
+                <span>
+                  {(history.before_value || '-') +
+                    ' → ' +
+                    (history.after_value || '-')}
+                </span>
+                <span>{history.project_name || '-'}</span>
+                <span>
+                  {history.task_work || history.task_title || '-'}
+                </span>
+                <span>{history.field_name || history.action || '-'}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
     </div>
   )
 }

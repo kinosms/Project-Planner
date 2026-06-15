@@ -1731,3 +1731,63 @@ h1 {
   }
 
 }
+
+
+
+
+
+/* =========================
+   history
+========================= */
+
+.history-page {
+  padding: 16px;
+}
+
+.history-board {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.history-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.history-table-header,
+.history-table-row {
+  display: grid;
+  grid-template-columns: 260px minmax(520px, 1.8fr) 220px 260px 140px;
+  gap: 18px;
+  align-items: center;
+}
+
+.history-table-header {
+  padding: 10px 0 14px;
+  border-bottom: 1px solid #cbd5e1;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.history-table-row {
+  min-height: 54px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.history-table-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-empty {
+  padding: 28px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}

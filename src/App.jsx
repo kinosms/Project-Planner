@@ -1930,8 +1930,7 @@ function Dashboard({
                     (due - today) / (1000 * 60 * 60 * 24)
                   )
 
-                  return 
-                  (
+                  return (
                     <div key={task.id} className="urgent-row clickable" onClick={() => focusTask(task)}>
                       <span>
                         {task.title || task.work || '이름없는 업무'}

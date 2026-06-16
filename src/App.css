@@ -1817,3 +1817,20 @@ h1 {
 .history-table-row.clickable:hover {
   background: #f8fafc;
 }
+
+
+.project-progress-track i,
+.owner-row i,
+.project-progress-bar i {
+  transform-origin: left center;
+  animation: fillBar 0.8s ease-out both;
+}
+
+@keyframes fillBar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

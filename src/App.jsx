@@ -1383,22 +1383,23 @@ const projectSummary =
                     <input
                       className="table-input"
                       value={project.name}
+                      disabled={scheduleLocked}
                       onChange={e => updateProjectName(project.id, e.target.value)}
                       onKeyDown={e => moveNextCell(e, project.id)}
                     />
-
                     <button
                       className="add-task-btn"
+                      disabled={scheduleLocked}
                       onClick={() => addTaskToProject(project.id)}
                       title="업무 추가"
                     >
                       +
                     </button>
                   </div>
-
                   <div className="project-task-list">
                     {project.tasks.map((task, taskIndex) => {
-                      const isLastTaskInProject = taskIndex === project.tasks.length - 1
+                      const isLastTaskInProject =
+                        taskIndex === project.tasks.length - 1
                       return (
                         <div
                           ref={el => {
@@ -1411,100 +1412,98 @@ const projectSummary =
                           ].join(' ')}
                           key={task.id}
                         >
-                        <input
-                          className="table-input"
-                          onKeyDown={e => moveNextCell(e, project.id)}
-                          value={task.work}
-                          onChange={e =>
-                            updateTask(project.id, task.id, 'work', e.target.value)
-                          }
-                        />
-
-                        <input
-                          className="table-input"
-                          onKeyDown={e => moveNextCell(e, project.id)}
-                          value={task.title}
-                          onChange={e =>
-                            updateTask(project.id, task.id, 'title', e.target.value)
-                          }
-                        />
-
-                        {!compactMode && (
-                          <>
-                            <div
-                              className={
-                                task.artifactUrl
-                                  ? 'doc-cell linked'
-                                  : 'doc-cell'
-                              }
-                            >
+                          <input
+                            className="table-input"
+                            onKeyDown={e => moveNextCell(e, project.id)}
+                            value={task.work}
+                            disabled={scheduleLocked}
+                            onChange={e =>
+                              updateTask(project.id, task.id, 'work', e.target.value)
+                            }
+                          />
+                          <input
+                            className="table-input"
+                            onKeyDown={e => moveNextCell(e, project.id)}
+                            value={task.title}
+                            disabled={scheduleLocked}
+                            onChange={e =>
+                              updateTask(project.id, task.id, 'title', e.target.value)
+                            }
+                          />
+                          {!compactMode && (
+                            <>
+                              <div
+                                className={
+                                  task.artifactUrl ? 'doc-cell linked' : 'doc-cell'
+                                }
+                              >
+                                <input
+                                  className="table-input"
+                                  onKeyDown={e => moveNextCell(e, project.id)}
+                                  value={task.artifactName}
+                                  disabled={scheduleLocked}
+                                  onChange={e =>
+                                    updateTask(
+                                      project.id,
+                                      task.id,
+                                      'artifactName',
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                                <button
+                                  className={
+                                    task.artifactUrl
+                                      ? 'url-button linked'
+                                      : 'url-button'
+                                  }
+                                  disabled={scheduleLocked}
+                                  onClick={() =>
+                                    setUrlEditor({
+                                      projectId: project.id,
+                                      taskId: task.id,
+                                      url: task.artifactUrl || '',
+                                    })
+                                  }
+                                  title="문서 링크 설정"
+                                >
+                                  🔗
+                                </button>
+                              </div>
                               <input
                                 className="table-input"
+                                list="owner-suggestions"
                                 onKeyDown={e => moveNextCell(e, project.id)}
-                                value={task.artifactName}
+                                value={task.owner}
+                                disabled={scheduleLocked}
                                 onChange={e =>
-                                  updateTask(
-                                    project.id,
-                                    task.id,
-                                    'artifactName',
-                                    e.target.value
-                                  )
+                                  updateTask(project.id, task.id, 'owner', e.target.value)
                                 }
                               />
-
-                              <button
-                                className={
-                                  task.artifactUrl
-                                    ? 'url-button linked'
-                                    : 'url-button'
-                                }
-                                onClick={() =>
-                                  setUrlEditor({
-                                    projectId: project.id,
-                                    taskId: task.id,
-                                    url: task.artifactUrl || '',
-                                  })
-                                }
-                                title="문서 링크 설정"
-                              >
-                                🔗
-                              </button>
+                            </>
+                          )}
+                          <div className="status-cell">
+                            <div
+                              className={`status-pill status-${getDisplayStatus(task)} ${
+                                scheduleLocked ? 'locked' : ''
+                              }`}
+                              onClick={() => {
+                                if (scheduleLocked) return
+                                cycleStatus(project.id, task.id)
+                              }}
+                            >
+                              {getDisplayStatus(task)}
                             </div>
-
-                            <input
-                              className="table-input"
-                              list="owner-suggestions"
-                              onKeyDown={e => moveNextCell(e, project.id)}
-                              value={task.owner}
-                              onChange={e =>
-                                updateTask(
-                                  project.id,
-                                  task.id,
-                                  'owner',
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </>
-                        )}
-
-                        <div className="status-cell">
-                          <div
-                            className={`status-pill status-${getDisplayStatus(task)}`}
-                            onClick={() => cycleStatus(project.id, task.id)}
-                          >
-                            {getDisplayStatus(task)}
                           </div>
+                          <button
+                            className="delete-btn"
+                            disabled={scheduleLocked}
+                            onClick={() => deleteTask(project.id, task.id)}
+                            title="삭제"
+                          >
+                            x
+                          </button>
                         </div>
-
-                        <button
-                          className="delete-btn"
-                          onClick={() => deleteTask(project.id, task.id)}
-                          title="삭제"
-                        >
-                          x
-                        </button>
-                      </div>
                       )
                     })}
                   </div>

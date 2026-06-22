@@ -1457,7 +1457,7 @@ const projectSummary =
                                       ? 'url-button linked'
                                       : 'url-button'
                                   }
-                                  disabled={scheduleLocked}
+                                  
                                   onClick={() =>
                                     setUrlEditor({
                                       projectId: project.id,

@@ -914,11 +914,15 @@ const loadFromDB = async () => {
       return
     }
 
-    const password = prompt('차력거인의 인물 이름은?')
-    if (password === '핑크핑거') {
+    const password = prompt('관리자 LDAP를 입력해주세요')
+    const passwords = [
+      'daisy.0724',
+      'geronimo.sung',
+    ]
+    if (passwords.includes(password)) {
       setScheduleLocked(false)
     } else {
-      alert('틀렸어요~')
+      alert('권한이 없습니다')
     }
   }
 

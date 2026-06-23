@@ -648,7 +648,6 @@ const loadFromDB = async () => {
 
   useEffect(() => {
     loadFromDB()
-    loadHistories()
   }, [])
   
   useEffect(() => {
@@ -886,26 +885,24 @@ const loadFromDB = async () => {
   scrollToCurrentMonth()
 }
 
-  const scrollToCurrentMonth = (startDate) => {
-
+  const scrollToCurrentMonth = () => {
     setTimeout(() => {
       const plannerEl = document.querySelector('.timeline-panel')
       if (!plannerEl) return
-      const start = startOfMonth(new Date(startDate))
-      const current = startOfMonth(new Date())
-      const diffMonths =
-        (current.getFullYear() - start.getFullYear()) * 12 +
-        (current.getMonth() - start.getMonth())
+      const todayIndex = days.findIndex(
+        day => format(day, 'yyyy-MM-dd') === todayString
+      )
+      if (todayIndex < 0) return
       plannerEl.scrollTo({
-        left: Math.max(0, diffMonths * 22 * 32 - 160),
+        left: Math.max(0, todayIndex * 32 - 160),
         behavior: 'smooth',
       })
     }, 200)
   }
 
   const addOneMonth = () => {
-    const nextEnd = endOfMonth(addMonths(new Date(rangeEnd), 1))
-    setRangeEnd(format(nextEnd, 'yyyy-MM-dd'))
+    const nextEnd = format(endOfMonth(addMonths(new Date(rangeEnd), 1)), 'yyyy-MM-dd')
+    updateRange(rangeStart, nextEnd)
   }
 
   const toggleScheduleLock = () => {
@@ -982,32 +979,6 @@ const loadFromDB = async () => {
   const endPaint = () => {
     setIsPainting(false)
     setPaintMode(null)
-  }
-
-  const getWeekMonthKey = day => {
-    const monthStart = startOfMonth(day)
-    const monthStartDay = monthStart.getDay()
-
-    // 그 달 1일이 월/화/수면 그 주부터 해당 월 1주차
-    if (monthStartDay >= 1 && monthStartDay <= 3) {
-      return format(day, 'yyyy-MM')
-    }
-
-    // 그 달 1일이 목/금/토/일이면 첫 월요일 전까지는 이전 달 마지막 주
-    const firstMonday = new Date(monthStart)
-
-    if (monthStartDay === 0) {
-      firstMonday.setDate(monthStart.getDate() + 1)
-    } else {
-      firstMonday.setDate(monthStart.getDate() + (8 - monthStartDay))
-    }
-
-    if (day < firstMonday) {
-      const prevMonth = addMonths(monthStart, -1)
-      return format(prevMonth, 'yyyy-MM')
-    }
-
-    return format(day, 'yyyy-MM')
   }
 
   const monthGroups = useMemo(() => {
@@ -1111,7 +1082,6 @@ const loadFromDB = async () => {
     }
 
   const getTaskProgress = task => {
-    const displayStatus = getDisplayStatus(task)
     if (task.status === '완료') return 100
     if (task.status === '대기') return 0
     const taskDates = [...(task.dates || [])].sort()

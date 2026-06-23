@@ -1821,6 +1821,166 @@ h1 {
 }
 
 
+/* =========================
+   DAILY BRIEF MODAL
+========================= */
+
+.daily-brief-modal {
+  width: 480px;
+  max-width: 92vw;
+  background: #fffef5;
+  border-radius: 4px;
+  padding: 28px 32px 22px;
+  box-shadow:
+    2px 3px 0 #e2d97a,
+    0 20px 60px rgba(15, 23, 42, 0.22);
+  font-family: 'Arial', sans-serif;
+  position: relative;
+  border-top: 4px solid #f0d84a;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.daily-brief-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.daily-brief-date {
+  font-size: 13px;
+  font-weight: 700;
+  color: #92870a;
+  letter-spacing: 0.03em;
+}
+
+.daily-brief-speak {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #c9bb48;
+  background: #faf5c0;
+  color: #78680a;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.daily-brief-speak:hover {
+  background: #f0e85a;
+}
+
+.daily-brief-speak.active {
+  background: #f59e0b;
+  color: white;
+  border-color: #d97706;
+  animation: speakPulse 1s ease infinite;
+}
+
+@keyframes speakPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.daily-brief-lines p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #2d2d1e;
+}
+
+.daily-brief-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.daily-brief-list li {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #2d2d1e;
+}
+
+.brief-progress {
+  font-weight: 700;
+}
+
+.brief-progress.high {
+  color: #15803d;
+}
+
+.brief-progress.mid {
+  color: #2563eb;
+}
+
+.brief-progress.low {
+  color: #d97706;
+}
+
+.daily-brief-urgent {
+  background: #fff7ed;
+  border-left: 3px solid #f59e0b;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #78350f;
+  margin-bottom: 12px;
+}
+
+.daily-brief-urgent .daily-brief-list {
+  margin: 6px 0 6px;
+  color: #78350f;
+}
+
+.daily-brief-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed #e2d97a;
+}
+
+.daily-brief-dismiss {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #c9bb48;
+  border-radius: 999px;
+  background: #faf5c0;
+  color: #78680a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.daily-brief-dismiss:hover {
+  background: #f0e85a;
+}
+
+.daily-brief-close {
+  height: 34px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #374151;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.daily-brief-close:hover {
+  background: #1f2937;
+}
+
 .project-progress-track i,
 .owner-row i,
 .project-progress-bar i {

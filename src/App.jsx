@@ -1147,6 +1147,22 @@ const projectSummary =
       ]
     .filter(item => item.name !== '이름없는 프로젝트' && item.count > 0)
 
+  const oneWeekAgo = (() => {
+    const d = new Date(todayString)
+    d.setDate(d.getDate() - 7)
+    return d.toISOString().slice(0, 10)
+  })()
+
+  const briefProjectSummary = projectProgressSummary.filter(item => {
+    if (item.progress < 100) return true
+    const project = visibleProjects.find(p => p.name === item.name)
+    if (!project) return false
+    const allDates = project.tasks.flatMap(t => [...(t.dates || []), ...(t.redDates || [])])
+    const lastDate = allDates.length > 0 ? allDates.sort().at(-1) : null
+    if (!lastDate) return false
+    return lastDate > oneWeekAgo
+  })
+
   const ownerSummary = Object.entries(
     dashboardTasks.reduce((acc, task) => {
       const owner = task.owner || '미지정'
@@ -1195,6 +1211,22 @@ const projectSummary =
   })
   .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
   .slice(0, 5)
+
+  const [showDailyBrief, setShowDailyBrief] = useState(false)
+
+  useEffect(() => {
+    if (page !== 'dashboard') return
+    const dismissed = localStorage.getItem('dailyBriefDismissed')
+    if (dismissed === todayString) return
+    setShowDailyBrief(true)
+  }, [page])
+
+  const closeDailyBrief = () => setShowDailyBrief(false)
+
+  const dismissDailyBrief = () => {
+    localStorage.setItem('dailyBriefDismissed', todayString)
+    setShowDailyBrief(false)
+  }
 
   return (
     <div className="app" onMouseUp={endPaint}>
@@ -1783,6 +1815,161 @@ const projectSummary =
         </div>
       )}
 
+      {showDailyBrief && (
+        <DailyBrief
+          todayString={todayString}
+          projectProgressSummary={briefProjectSummary}
+          total={total}
+          doing={doing}
+          done={done}
+          waiting={waiting}
+          urgentTasks={urgentTasks}
+          onClose={closeDailyBrief}
+          onDismiss={dismissDailyBrief}
+        />
+      )}
+
+    </div>
+  )
+}
+
+function DailyBrief({
+  todayString,
+  projectProgressSummary,
+  total,
+  doing,
+  done,
+  waiting,
+  urgentTasks,
+  onClose,
+  onDismiss,
+}) {
+  const [speaking, setSpeaking] = useState(false)
+
+  const dateLabel = (() => {
+    const d = new Date(todayString)
+    const weekDays = ['일', '월', '화', '수', '목', '금', '토']
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 ${weekDays[d.getDay()]}요일`
+  })()
+
+  const buildSpeechText = () => {
+    const lines = []
+    lines.push(`${dateLabel} 업무 브리핑입니다. 안녕하세요!`)
+
+    if (projectProgressSummary.length > 0) {
+      lines.push('프로젝트별 진도를 확인해볼게요.')
+      projectProgressSummary.forEach(item => {
+        let sentence = `${item.name}은 현재 ${item.progress}퍼센트 진행됐어요.`
+        if (item.progress === 100) sentence += ' 완료됐네요, 수고하셨습니다!'
+        else if (item.progress >= 70) sentence += ' 거의 다 왔어요!'
+        else if (item.progress > 0 && item.progress < 30) sentence += ' 초반부예요, 파이팅!'
+        lines.push(sentence)
+      })
+    }
+
+    if (urgentTasks.length > 0) {
+      lines.push(`종료가 임박한 업무가 ${urgentTasks.length}개 있어요.`)
+      urgentTasks.forEach(t => {
+        const diffDays = Math.ceil((new Date(t.dueDate) - new Date(todayString)) / (1000 * 60 * 60 * 24))
+        const owner = t.owner || '담당자 미지정'
+        const name = t.title || t.work || '이름없는 업무'
+        lines.push(`${owner}님의 ${name}, 디데이 ${diffDays}일 남았어요.`)
+      })
+      lines.push('놓치지 않도록 확인해주세요!')
+    } else {
+      lines.push('오늘 마감이 임박한 업무는 없어요. 여유롭게 진행하세요!')
+    }
+
+    return lines.join(' ')
+  }
+
+  const handleSpeak = () => {
+    if (!window.speechSynthesis) return
+    if (speaking) {
+      window.speechSynthesis.cancel()
+      setSpeaking(false)
+      return
+    }
+    const text = buildSpeechText()
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.lang = 'ko-KR'
+    utter.rate = 1.05
+    utter.onend = () => setSpeaking(false)
+    utter.onerror = () => setSpeaking(false)
+    setSpeaking(true)
+    window.speechSynthesis.speak(utter)
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="daily-brief-modal" onClick={e => e.stopPropagation()}>
+        <div className="daily-brief-header">
+          <div className="daily-brief-date">{dateLabel} 업무 브리핑</div>
+          <button
+            className={`daily-brief-speak ${speaking ? 'active' : ''}`}
+            onClick={handleSpeak}
+            title={speaking ? '음성 중지' : '음성으로 듣기'}
+          >
+            {speaking ? '■' : '▶'}
+          </button>
+        </div>
+
+        <div className="daily-brief-lines">
+          <p>안녕하세요! 오늘도 좋은 하루 되세요 😊</p>
+
+          {projectProgressSummary.length > 0 && (
+            <>
+              <p>프로젝트별 진도를 확인해볼게요.</p>
+              <ul className="daily-brief-list">
+                {projectProgressSummary.map(item => (
+                  <li key={item.name}>
+                    <strong>{item.name}</strong>은 현재{' '}
+                    <span className={`brief-progress ${item.progress >= 80 ? 'high' : item.progress >= 40 ? 'mid' : 'low'}`}>
+                      {item.progress}%
+                    </span>{' '}
+                    진행됐어요.
+                    {item.progress === 100 && ' 완료됐네요! 수고하셨습니다 🎉'}
+                    {item.progress >= 70 && item.progress < 100 && ' 거의 다 왔어요!'}
+                    {item.progress > 0 && item.progress < 30 && ' 초반부예요, 파이팅!'}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {urgentTasks.length > 0 && (
+            <div className="daily-brief-urgent">
+              ⚠️ 종료가 임박한 업무가 <strong>{urgentTasks.length}개</strong> 있어요.
+              <ul className="daily-brief-list">
+                {urgentTasks.map(t => {
+                  const diffDays = Math.ceil((new Date(t.dueDate) - new Date(todayString)) / (1000 * 60 * 60 * 24))
+                  return (
+                    <li key={t.id}>
+                      <strong>{t.owner || '미지정'}</strong>님의{' '}
+                      <strong>{t.title || t.work || '이름없는 업무'}</strong> —{' '}
+                      D-{diffDays}
+                    </li>
+                  )
+                })}
+              </ul>
+              놓치지 않도록 확인해주세요!
+            </div>
+          )}
+
+          {urgentTasks.length === 0 && (
+            <p>오늘 마감이 임박한 업무는 없어요. 여유롭게 진행하세요 👍</p>
+          )}
+        </div>
+
+        <div className="daily-brief-actions">
+          <button className="daily-brief-dismiss" onClick={onDismiss}>
+            오늘 하루 그만보기
+          </button>
+          <button className="daily-brief-close" onClick={onClose}>
+            닫기
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

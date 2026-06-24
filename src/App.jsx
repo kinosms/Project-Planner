@@ -1083,7 +1083,6 @@ const loadFromDB = async () => {
 
   const getTaskProgress = task => {
     if (task.status === '완료') return 100
-    if (task.status === '대기') return 0
     const taskDates = [...(task.dates || [])].sort()
     if (taskDates.length === 0) return 0
     const startDate = taskDates[0]

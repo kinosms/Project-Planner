@@ -290,6 +290,7 @@ h1 {
   font-weight: 700;
 }
 
+
 .url-input-row {
   display: flex;
   gap: 8px;
@@ -531,8 +532,81 @@ h1 {
 }
 
 .url-modal h3 {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   font-size: 20px;
+}
+
+.url-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.url-list-row {
+  display: grid;
+  grid-template-columns: 1fr 36px 36px;
+  gap: 6px;
+  align-items: center;
+}
+
+.url-name-input,
+.url-url-input {
+  height: 38px;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0 10px;
+  font-size: 13px;
+  outline: none;
+}
+
+.url-name-input:focus,
+.url-url-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+.delete-url-btn {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-url-btn:hover {
+  background: #fca5a5;
+}
+
+.add-url-btn {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px dashed #9ca3af;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.add-url-btn:hover {
+  background: #f3f4f6;
+  border-color: #6b7280;
+}
+
+.task-doc-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .url-input-row {

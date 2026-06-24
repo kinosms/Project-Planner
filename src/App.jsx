@@ -12,6 +12,26 @@ import {
 
 import './App.css'
 
+function IconLinkSingle() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function IconLinkDouble() {
+  return (
+    <svg width="18" height="12" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M22 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M26 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export default function App() {
   const [projects, setProjects] = useState(() => {
     const savedProjects = localStorage.getItem('projectPlannerProjects')
@@ -441,7 +461,9 @@ export default function App() {
             owner: task.owner || '',
             status: task.status || '대기',
             artifact_name: task.artifactName || '',
-            artifact_url: task.artifactUrl || '',
+            artifact_url: task.artifactUrls?.length
+              ? JSON.stringify(task.artifactUrls)
+              : task.artifactUrl || '',
           })
           .select()
 
@@ -586,7 +608,19 @@ const loadFromDB = async () => {
         owner: task.owner || '',
         status: task.status || '대기',
         artifactName: task.artifact_name || '',
-        artifactUrl: task.artifact_url || '',
+        ...(() => {
+          const raw = task.artifact_url || ''
+          try {
+            const parsed = raw.startsWith('[') ? JSON.parse(raw) : null
+            if (Array.isArray(parsed)) {
+              return {
+                artifactUrls: parsed.map(item => typeof item === 'string' ? item : item.url).filter(Boolean),
+                artifactUrl: parsed[0] || '',
+              }
+            }
+          } catch {}
+          return { artifactUrls: raw ? [raw] : [], artifactUrl: raw }
+        })(),
         dates: dateRows
           .filter(date => date.task_id === task.id && date.color !== 'red')
           .map(date => date.work_date),
@@ -725,6 +759,7 @@ const loadFromDB = async () => {
             status: '대기',
             artifactName: '',
             artifactUrl: '',
+            artifactUrls: [],
             dates: [],
             redDates: [],
           },
@@ -775,6 +810,7 @@ const loadFromDB = async () => {
                   status: '대기',
                   artifactName: '',
                   artifactUrl: '',
+                  artifactUrls: [],
                   dates: [],
                   redDates: [],
                   memoDates: {},
@@ -817,6 +853,21 @@ const loadFromDB = async () => {
               ...project,
               tasks: project.tasks.map(task =>
                 task.id === taskId ? { ...task, [key]: value } : task
+              ),
+            }
+          : project
+      )
+    )
+  }
+
+  const updateTaskFields = (projectId, taskId, fields) => {
+    saveProjects(
+      projects.map(project =>
+        project.id === projectId
+          ? {
+              ...project,
+              tasks: project.tasks.map(task =>
+                task.id === taskId ? { ...task, ...fields } : task
               ),
             }
           : project
@@ -1500,7 +1551,7 @@ const projectSummary =
                             <>
                               <div
                                 className={
-                                  task.artifactUrl ? 'doc-cell linked' : 'doc-cell'
+                                  (task.artifactUrls?.length || task.artifactUrl) ? 'doc-cell linked' : 'doc-cell'
                                 }
                               >
                                 <input
@@ -1518,22 +1569,25 @@ const projectSummary =
                                   }
                                 />
                                 <button
-                                  className={
-                                    task.artifactUrl
-                                      ? 'url-button linked'
-                                      : 'url-button'
-                                  }
-                                  
+                                  className={[
+                                    'url-button',
+                                    (task.artifactUrls?.length || task.artifactUrl) ? 'linked' : '',
+                                    (task.artifactUrls?.length >= 2) ? 'multi' : '',
+                                  ].join(' ')}
                                   onClick={() =>
                                     setUrlEditor({
                                       projectId: project.id,
                                       taskId: task.id,
-                                      url: task.artifactUrl || '',
+                                      urls: task.artifactUrls?.length
+                                        ? task.artifactUrls
+                                        : task.artifactUrl
+                                          ? [task.artifactUrl]
+                                          : [''],
                                     })
                                   }
                                   title="문서 링크 설정"
                                 >
-                                  🔗
+                                  {task.artifactUrls?.length >= 2 ? <IconLinkDouble /> : <IconLinkSingle />}
                                 </button>
                               </div>
                               <input
@@ -1727,58 +1781,61 @@ const projectSummary =
         ) : null}
 
       {urlEditor && (
-        <div className="modal-backdrop">
-          <div className="url-modal">
-            <h3>문서 URL 입력</h3>
-            <div className="url-input-row">
-              <input
-                value={urlEditor.url}
-                onChange={e =>
-                  setUrlEditor({
-                    ...urlEditor,
-                    url: e.target.value,
-                  })
-                }
-                placeholder="https://..."
-                autoFocus
-              />
+        <div className="modal-backdrop" onClick={() => setUrlEditor(null)}>
+          <div className="url-modal" onClick={e => e.stopPropagation()}>
+            <h3>문서 URL</h3>
 
-              <button
-                className="open-url-btn"
-                onClick={() => {
-                  if (!urlEditor?.url) return
-                  window.open(urlEditor.url, '_blank')
-                }}
-              >
-                ↗
-              </button>
+            <div className="url-list">
+              {urlEditor.urls.map((url, i) => (
+                <div className="url-list-row" key={i}>
+                  <input
+                    className="url-url-input"
+                    value={url}
+                    placeholder="https://..."
+                    autoFocus={i === urlEditor.urls.length - 1}
+                    onChange={e => setUrlEditor({
+                      ...urlEditor,
+                      urls: urlEditor.urls.map((u, idx) => idx === i ? e.target.value : u),
+                    })}
+                  />
+                  <button
+                    className="open-url-btn"
+                    onClick={() => { if (url) window.open(url, '_blank') }}
+                    title="열기"
+                  >↗</button>
+                  <button
+                    className="delete-url-btn"
+                    onClick={() => setUrlEditor({
+                      ...urlEditor,
+                      urls: urlEditor.urls.filter((_, idx) => idx !== i),
+                    })}
+                    title="삭제"
+                  >×</button>
+                </div>
+              ))}
             </div>
+
+            <button
+              className="add-url-btn"
+              onClick={() => setUrlEditor({ ...urlEditor, urls: [...urlEditor.urls, ''] })}
+            >
+              + URL 추가
+            </button>
 
             <div className="modal-actions">
               <button
                 onClick={() => {
-                  updateTask(
-                    urlEditor.projectId,
-                    urlEditor.taskId,
-                    'artifactUrl',
-                    urlEditor.url
-                  )
+                  const validUrls = urlEditor.urls.filter(u => u.trim())
+                  updateTaskFields(urlEditor.projectId, urlEditor.taskId, {
+                    artifactUrls: validUrls,
+                    artifactUrl: validUrls[0] || '',
+                  })
                   setUrlEditor(null)
                 }}
               >
                 저장
               </button>
-
               <button onClick={() => setUrlEditor(null)}>취소</button>
-
-              <button
-                onClick={() => {
-                  updateTask(urlEditor.projectId, urlEditor.taskId, 'artifactUrl', '')
-                  setUrlEditor(null)
-                }}
-              >
-                URL 삭제
-              </button>
             </div>
           </div>
         </div>
@@ -2042,6 +2099,50 @@ function DailyBrief({
   )
 }
 
+function DonutChart({ total, doing, waiting, done }) {
+  const size = 120
+  const r = 42
+  const cx = size / 2
+  const cy = size / 2
+  const circumference = 2 * Math.PI * r
+
+  const segments = [
+    { value: doing,   color: '#3b82f6' },
+    { value: waiting, color: '#f59e0b' },
+    { value: done,    color: '#84cc16' },
+  ]
+
+  let offset = 0
+  const paths = total === 0
+    ? [{ color: '#e5e7eb', dash: circumference, gap: 0, offset: 0 }]
+    : segments.map(seg => {
+        const dash = (seg.value / total) * circumference
+        const item = { color: seg.color, dash, gap: circumference - dash, offset }
+        offset += dash
+        return item
+      })
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {paths.map((p, i) => (
+        <circle
+          key={i}
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={p.color}
+          strokeWidth="18"
+          strokeDasharray={`${p.dash} ${p.gap}`}
+          strokeDashoffset={-p.offset}
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+      ))}
+      <circle cx={cx} cy={cy} r="30" fill="white" />
+    </svg>
+  )
+}
+
 function Dashboard({
   total,
   doing,
@@ -2161,7 +2262,7 @@ function Dashboard({
           <h3>상태별 업무 비율</h3>
 
           <div className="donut-row">
-            <div className="donut status-donut"></div>
+            <DonutChart total={total} doing={doing} waiting={waiting} done={done} />
 
             <div className="dashboard-legend">
               <div>
@@ -2286,18 +2387,19 @@ function Dashboard({
                     <span>{task.work || '-'}</span>
                     <span>{task.title || '-'}</span>
                     <span>
-                    {task.artifactUrl ? (
-                      <a
-                        href={task.artifactUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="task-doc-link"
-                      >
+                    {task.artifactUrls?.length ? (
+                      <span className="task-doc-links">
+                        {task.artifactUrls.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noreferrer" className="task-doc-link">
+                            {task.artifactName || `문서${i + 1}`}
+                          </a>
+                        ))}
+                      </span>
+                    ) : task.artifactUrl ? (
+                      <a href={task.artifactUrl} target="_blank" rel="noreferrer" className="task-doc-link">
                         {task.artifactName || '문서열기'}
                       </a>
-                    ) : (
-                      '-'
-                    )}
+                    ) : '-'}
                   </span>
                     <span>{getDisplayStatus(task)}</span>
 

@@ -35,6 +35,9 @@ export default function App() {
 
   const [isPainting, setIsPainting] = useState(false)
   const [paintMode, setPaintMode] = useState(null)
+  const [isShiftHeld, setIsShiftHeld] = useState(false)
+  const [dragging, setDragging] = useState(null)
+  const [dragOver, setDragOver] = useState(null)
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
   const [page, setPage] = useState('dashboard')
@@ -309,15 +312,19 @@ export default function App() {
 
           ['owner', '담당자'],
 
-          ['status', '상태'],
-
           ['artifactName', '문서명'],
 
           ['artifactUrl', '문서URL'],
 
         ].forEach(([key, label]) => {
 
-          if ((oldTask[key] || '') !== (newTask[key] || '')) {
+          const before = oldTask[key] || ''
+          const after = newTask[key] || ''
+
+          // 빈 값에서 처음 입력한 경우는 변경사항으로 취급하지 않음
+          if (before === '') return
+
+          if (before !== after) {
 
             historyRows.push({
 
@@ -331,9 +338,9 @@ export default function App() {
 
               field_name: label,
 
-              before_value: oldTask[key] || '',
+              before_value: before,
 
-              after_value: newTask[key] || '',
+              after_value: after,
 
             })
 
@@ -357,7 +364,7 @@ export default function App() {
 
         ].sort().join(',')
 
-        if (oldDates !== newDates) {
+        if (oldDates !== newDates && oldDates !== '') {
 
           historyRows.push({
 
@@ -381,41 +388,6 @@ export default function App() {
 
       })
 
-      // 업무 추가
-
-      newProject.tasks.forEach(newTask => {
-
-        const exists = oldProject.tasks.find(t => t.id === newTask.id)
-
-        if (!exists) {
-
-          historyRows.push({
-
-            action: '업무 추가',
-
-            project_name: newProject.name,
-
-            task_work: newTask.work,
-
-            task_title: newTask.title,
-
-          })
-
-        }
-
-      })
-
-    })
-
-    // 프로젝트 추가
-    projects.forEach(project => {
-      const exists = loadedProjects.find(p => p.id === project.id)
-      if (!exists) {
-        historyRows.push({
-          action: '프로젝트 추가',
-          project_name: project.name,
-        })
-      }
     })
 
     console.log('HISTORY_ROWS=', historyRows)
@@ -649,6 +621,42 @@ const loadFromDB = async () => {
   useEffect(() => {
     loadFromDB()
   }, [])
+
+  useEffect(() => {
+    const onKeyDown = e => { if (e.key === 'Shift') setIsShiftHeld(true) }
+    const onKeyUp = e => { if (e.key === 'Shift') setIsShiftHeld(false) }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
+
+  const reorderProject = (fromId, toId) => {
+    if (fromId === toId) return
+    const next = [...projects]
+    const fromIdx = next.findIndex(p => p.id === fromId)
+    const toIdx = next.findIndex(p => p.id === toId)
+    const [moved] = next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, moved)
+    saveProjects(next)
+  }
+
+  const reorderTask = (projectId, fromTaskId, toTaskId) => {
+    if (fromTaskId === toTaskId) return
+    saveProjects(
+      projects.map(project => {
+        if (project.id !== projectId) return project
+        const tasks = [...project.tasks]
+        const fromIdx = tasks.findIndex(t => t.id === fromTaskId)
+        const toIdx = tasks.findIndex(t => t.id === toTaskId)
+        const [moved] = tasks.splice(fromIdx, 1)
+        tasks.splice(toIdx, 0, moved)
+        return { ...project, tasks }
+      })
+    )
+  }
   
   useEffect(() => {
 
@@ -1227,8 +1235,14 @@ const projectSummary =
     setShowDailyBrief(false)
   }
 
+  const handleAppMouseUp = () => {
+    endPaint()
+    setDragging(null)
+    setDragOver(null)
+  }
+
   return (
-    <div className="app" onMouseUp={endPaint}>
+    <div className="app" onMouseUp={handleAppMouseUp}>
       <datalist id="owner-suggestions">
         {ownerSuggestions.map(owner => (
           <option key={owner} value={owner} />
@@ -1379,8 +1393,38 @@ const projectSummary =
               </div>
 
               {visibleProjects.map(project => (
-                <div className="project-group" key={project.id}>
-                  <div className="project-cell project-bottom-line">
+                <div
+                  className={[
+                    'project-group',
+                    dragging?.type === 'project' && dragOver?.id === project.id && dragging.id !== project.id
+                      ? 'drag-over-project'
+                      : '',
+                  ].join(' ')}
+                  key={project.id}
+                  onMouseEnter={() => {
+                    if (dragging?.type === 'project') setDragOver({ id: project.id })
+                  }}
+                  onMouseUp={() => {
+                    if (dragging?.type === 'project' && dragOver?.id && dragging.id !== dragOver.id) {
+                      reorderProject(dragging.id, dragOver.id)
+                    }
+                    setDragging(null)
+                    setDragOver(null)
+                  }}
+                >
+                  <div
+                    className={[
+                      'project-cell project-bottom-line',
+                      !scheduleLocked && isShiftHeld ? 'shift-draggable' : '',
+                      dragging?.type === 'project' && dragging.id === project.id ? 'dragging' : '',
+                    ].join(' ')}
+                    onMouseDown={e => {
+                      if (scheduleLocked || !e.shiftKey) return
+                      e.preventDefault()
+                      setDragging({ type: 'project', id: project.id })
+                      setDragOver({ id: project.id })
+                    }}
+                  >
                     <input
                       className="table-input"
                       value={project.name}
@@ -1410,8 +1454,29 @@ const projectSummary =
                             'task-row-fields',
                             highlightTaskId === task.id ? 'task-highlight' : '',
                             isLastTaskInProject ? 'project-bottom-line' : '',
+                            !scheduleLocked && isShiftHeld ? 'shift-draggable' : '',
+                            dragging?.type === 'task' && dragging.taskId === task.id ? 'dragging' : '',
+                            dragging?.type === 'task' && dragging.projectId === project.id && dragOver?.taskId === task.id && dragging.taskId !== task.id ? 'drag-over-task' : '',
                           ].join(' ')}
                           key={task.id}
+                          onMouseDown={e => {
+                            if (scheduleLocked || !e.shiftKey) return
+                            e.preventDefault()
+                            setDragging({ type: 'task', projectId: project.id, taskId: task.id })
+                            setDragOver({ taskId: task.id })
+                          }}
+                          onMouseEnter={() => {
+                            if (dragging?.type === 'task' && dragging.projectId === project.id) {
+                              setDragOver({ taskId: task.id })
+                            }
+                          }}
+                          onMouseUp={() => {
+                            if (dragging?.type === 'task' && dragging.projectId === project.id && dragOver?.taskId && dragging.taskId !== dragOver.taskId) {
+                              reorderTask(project.id, dragging.taskId, dragOver.taskId)
+                            }
+                            setDragging(null)
+                            setDragOver(null)
+                          }}
                         >
                           <input
                             className="table-input"
@@ -1572,6 +1637,10 @@ const projectSummary =
                       className={[
                         'timeline-row',
                         isLastTaskInProject ? 'project-bottom-line' : '',
+                        dragging?.type === 'task' && dragging.taskId === task.id ? 'dragging' : '',
+                        dragging?.type === 'task' && dragging.projectId === project.id && dragOver?.taskId === task.id && dragging.taskId !== task.id ? 'drag-over-task' : '',
+                        dragging?.type === 'project' && dragOver?.id === project.id && dragging.id !== project.id ? 'drag-over-project-line' : '',
+                        dragging?.type === 'project' && dragging.id === project.id ? 'dragging' : '',
                       ].join(' ')}
                       key={`${project.id}-${task.id}`}
                     >
@@ -2310,48 +2379,83 @@ function Dashboard({
   )
 }
 
-function History({ histories, focusHistory }) 
-  {
+function getHistoryType(action) {
+  if (['프로젝트 삭제', '업무 삭제'].includes(action)) return '삭제'
+  if (action === '순서 이동') return '이동'
+  return '변경'
+}
+
+function buildHistorySentence(history) {
+  const task = history.task_title || history.task_work || ''
+  const before = history.before_value || ''
+  const after = history.after_value || ''
+  const field = history.field_name || ''
+  const taskLabel = task ? `'${task}'` : '업무'
+
+  switch (history.action) {
+    case '프로젝트 삭제':
+      return `프로젝트가 삭제되었습니다.`
+    case '업무 삭제':
+      return `${taskLabel} 업무가 삭제되었습니다.`
+    case '프로젝트명 변경':
+      return `프로젝트 이름이 '${before}'에서 '${after}'로 변경되었습니다.`
+    case '업무 정보 변경':
+      if (after === '') {
+        return `${taskLabel}의 ${field}이(가) '${before}'에서 삭제되었습니다.`
+      }
+      return `${taskLabel}의 ${field}이(가) '${before}'에서 '${after}'로 변경되었습니다.`
+    case '일정 변경': {
+      const formatDates = str => str ? str.split(',').map(d => d.replace(/-/g, '.')).join(', ') : '-'
+      if (after === '') {
+        return `${taskLabel}의 일정이 삭제되었습니다. (이전: ${formatDates(before)})`
+      }
+      return `${taskLabel}의 일정이 변경되었습니다. ${formatDates(before)} → ${formatDates(after)}`
+    }
+    case '순서 이동':
+      return `${taskLabel}의 순서가 변경되었습니다.`
+    default:
+      return history.action || '-'
+  }
+}
+
+function History({ histories, focusHistory }) {
   return (
     <div className="history-page">
       <section className="history-board">
-        <div className="history-table">
-          <div className="history-table-header">
-            <span>시간</span>
-            <span>항목</span>
-            <span>변경 내용</span>
+        <div className="history-list">
+          <div className="history-list-header">
+            <span>수정시각</span>
+            <span>타입</span>
             <span>프로젝트</span>
-            <span>업무</span>
+            <span>변경내용</span>
           </div>
           {histories.length === 0 ? (
             <div className="history-empty">수정 이력이 없습니다.</div>
           ) : (
             histories.map(history => {
-              const isFocusableHistory =
-                !['업무 삭제', '프로젝트 삭제', '업무 추가', '프로젝트 추가'].includes(
-                  history.action
-                )
+              const isFocusable =
+                !['업무 삭제', '프로젝트 삭제'].includes(history.action)
+              const sentence = buildHistorySentence(history)
               return (
                 <div
-                  className={[
-                    'history-table-row',
-                    isFocusableHistory ? 'clickable' : '',
-                  ].join(' ')}
+                  className={['history-item', isFocusable ? 'clickable' : ''].join(' ')}
                   key={history.id}
                   onClick={() => {
-                    if (!isFocusableHistory) return
+                    if (!isFocusable) return
                     focusHistory(history)
                   }}
                 >
-                  <span>{new Date(history.created_at).toLocaleString()}</span>
-                  <span>{history.field_name || history.action || '-'}</span>
-                  <span>
-                    {(history.before_value || '-') +
-                      ' → ' +
-                      (history.after_value || '-')}
+                  <span className="history-time">
+                    {new Date(history.created_at).toLocaleString('ko-KR', {
+                      month: '2-digit', day: '2-digit',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
                   </span>
-                  <span>{history.project_name || '-'}</span>
-                  <span>{history.task_work || history.task_title || '-'}</span>
+                  <span className={`history-type type-${getHistoryType(history.action)}`}>
+                    {getHistoryType(history.action)}
+                  </span>
+                  <span className="history-project">{history.project_name || '-'}</span>
+                  <span className="history-sentence">{sentence}</span>
                 </div>
               )
             })

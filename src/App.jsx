@@ -64,6 +64,25 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '')
   const [selectedOwner, setSelectedOwner] = useState('')
   const [memoEditor, setMemoEditor] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const LOCAL_HISTORY_KEY = 'projectPlannerLocalHistory'
+  const [localHistory, setLocalHistory] = useState(() => {
+    const saved = localStorage.getItem(LOCAL_HISTORY_KEY)
+    return saved ? JSON.parse(saved) : []
+  })
+
+  const [historyIndex, setHistoryIndex] = useState(() => {
+
+  const saved = localStorage.getItem(LOCAL_HISTORY_KEY)
+
+  const list = saved ? JSON.parse(saved) : []
+
+  return list.length > 0 ? list.length - 1 : -1
+
+})
+
+const [toast, setToast] = useState('')
+
 
   const [histories, setHistories] = useState([])
   const days = useMemo(() => {
@@ -229,14 +248,6 @@ export default function App() {
       projectName: targetProject.name,
     })
   }
-
-
-
-
-
-
-
-
 
   
 
@@ -421,9 +432,86 @@ export default function App() {
     }
   }
 
-  const saveAllToDB = async () => {
-    if (!confirm('현재 화면 데이터를 DB에 저장할까?')) return
 
+  const showToast = message => {
+  setToast(message)
+  setTimeout(() => setToast(''), 2200)
+}
+
+const buildSnapshot = () => ({
+  savedAt: new Date().toISOString(),
+  projects: JSON.parse(JSON.stringify(projects)),
+  rangeStart,
+  rangeEnd,
+  customHolidayDates: JSON.parse(JSON.stringify(customHolidayDates)),
+})
+
+const saveLocalSnapshot = () => {
+  const snapshot = buildSnapshot()
+  const currentList = localHistory.slice(0, historyIndex + 1)
+  const nextList = [...currentList, snapshot].slice(-3)
+  const nextIndex = nextList.length - 1
+
+  setLocalHistory(nextList)
+  setHistoryIndex(nextIndex)
+  localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(nextList))
+}
+
+const applySnapshot = snapshot => {
+  if (!snapshot) return
+
+  setProjects(snapshot.projects || [])
+  setRangeStart(snapshot.rangeStart || rangeStart)
+  setRangeEnd(snapshot.rangeEnd || rangeEnd)
+  setCustomHolidayDates(snapshot.customHolidayDates || [])
+
+  localStorage.setItem('projectPlannerProjects', JSON.stringify(snapshot.projects || []))
+  localStorage.setItem('projectPlannerRangeStart', snapshot.rangeStart || rangeStart)
+  localStorage.setItem('projectPlannerRangeEnd', snapshot.rangeEnd || rangeEnd)
+  localStorage.setItem(
+    'projectPlannerCustomHolidayDates',
+    JSON.stringify(snapshot.customHolidayDates || [])
+  )
+}
+
+const moveLocalHistory = direction => {
+  const nextIndex = historyIndex + direction
+
+  if (nextIndex < 0 || nextIndex >= localHistory.length) return
+
+  setHistoryIndex(nextIndex)
+  applySnapshot(localHistory[nextIndex])
+  showToast(direction < 0 ? '이전 상태로 이동했습니다' : '다음 상태로 이동했습니다')
+}
+  
+
+  useEffect(() => {
+
+  const handleBeforeUnload = e => {
+
+    if (!isSaving) return
+
+    e.preventDefault()
+
+    e.returnValue = ''
+
+  }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+
+  }, [isSaving])
+
+
+  const saveAllToDB = async () => {
+  if (isSaving) return
+  if (!confirm('현재 화면 데이터를 DB에 저장할까?')) return
+
+
+  setIsSaving(true)
+
+  try {
     await saveChangeHistories()
 
     const { error: deleteError } = await supabase
@@ -431,11 +519,7 @@ export default function App() {
       .delete()
       .neq('id', 0)
 
-    if (deleteError) {
-      console.log('delete error=', deleteError)
-      alert('기존 데이터 삭제 실패')
-      return
-    }
+    if (deleteError) throw deleteError
 
     for (const project of projects) {
       const { data: insertedProjects, error: projectError } = await supabase
@@ -443,11 +527,7 @@ export default function App() {
         .insert({ name: project.name || '' })
         .select()
 
-      if (projectError) {
-        console.log('project error=', projectError)
-        alert('프로젝트 저장 실패')
-        return
-      }
+      if (projectError) throw projectError
 
       const insertedProject = insertedProjects[0]
 
@@ -467,14 +547,11 @@ export default function App() {
           })
           .select()
 
-        if (taskError) {
-          console.log('task error=', taskError)
-          alert('업무 저장 실패')
-          return
-        }
+        if (taskError) throw taskError
 
         const insertedTask = insertedTasks[0]
         const memoDates = task.memoDates || {}
+
         const rows = [
           ...(task.dates || []).map(date => ({
             task_id: insertedTask.id,
@@ -489,7 +566,10 @@ export default function App() {
             memo: memoDates[date] || null,
           })),
           ...Object.entries(memoDates)
-            .filter(([date]) => !(task.dates || []).includes(date) && !(task.redDates || []).includes(date))
+            .filter(([date]) =>
+              !(task.dates || []).includes(date) &&
+              !(task.redDates || []).includes(date)
+            )
             .map(([date, memo]) => ({
               task_id: insertedTask.id,
               work_date: date,
@@ -497,16 +577,13 @@ export default function App() {
               memo,
             })),
         ]
+
         if (rows.length > 0) {
           const { error: dateError } = await supabase
             .from('task_dates')
             .insert(rows)
-          if (dateError) {
-            console.log('date error=', dateError)
-            alert('일정 저장 실패')
-            return
-          }
 
+          if (dateError) throw dateError
         }
       }
     }
@@ -520,16 +597,23 @@ export default function App() {
         updated_at: new Date().toISOString(),
       })
 
-    if (settingError) {
-      console.log('setting save error=', settingError)
-      alert('보기 기간 저장 실패')
-      return
-    }
+    if (settingError) throw settingError
+
     setLoadedProjects(JSON.parse(JSON.stringify(projects)))
     await loadHistories()
 
-    alert('DB 저장 완료')
+    saveLocalSnapshot()
+    showToast('DB 저장 완료')
+  } catch (error) {
+
+    console.log('save failed=', error)
+
+    showToast('DB 저장 실패')
+
+  } finally {
+    setIsSaving(false)
   }
+}
 
 
   const loadHistories = async () => {
@@ -1381,10 +1465,28 @@ const projectSummary =
               {scheduleLocked ? '🔒 잠금상태' : '편집중'}
             </button>
 
-            <button className="planner-mobile-hide" onClick={saveAllToDB}>
-              저장
+            <button
+              className="planner-mobile-hide"
+              onClick={saveAllToDB}
+              disabled={isSaving}
+            >
+              {isSaving ? '저장중...' : '저장'}
             </button>
-          </>
+            <button
+              className="planner-mobile-hide"
+              onClick={() => moveLocalHistory(-1)}
+              disabled={historyIndex <= 0}
+            >
+              ←
+            </button>
+            <button
+              className="planner-mobile-hide"
+              onClick={() => moveLocalHistory(1)}
+              disabled={historyIndex >= localHistory.length - 1}
+            >
+              →
+            </button>
+                      </>
         ) : (
           <>
             <button
@@ -1953,6 +2055,13 @@ const projectSummary =
           onDismiss={dismissDailyBrief}
         />
       )}
+
+      {toast && (
+        <div className="toast">
+          {toast}
+        </div>
+
+)}
 
     </div>
   )

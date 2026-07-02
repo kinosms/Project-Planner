@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { useEffect, useMemo, useState, useRef } from 'react'
+import IntegrityCheck from './IntegrityCheck'
 import {
   addMonths,
   eachDayOfInterval,
@@ -1409,13 +1410,21 @@ const projectSummary =
           >
             히스토리
           </button>
+          <button
+            className={`planner-mobile-hide ${page === 'integrity' ? 'active' : ''}`}
+            onClick={() => setPage('integrity')}
+          >
+            무결성체크
+          </button>
         </div>
         <h1>
           {page === 'planner'
             ? 'Project Planner'
             : page === 'dashboard'
               ? 'Project Dashboard'
-              : 'Project History'}
+              : page === 'history'
+                ? 'Project History'
+                : 'Code Integrity'}
         </h1>
       </div>
 
@@ -1873,6 +1882,10 @@ const projectSummary =
           setHideCompletedProjects={setHideCompletedProjects}
           dashboardTasks={dashboardTasks}
         />
+        ) : page === 'integrity' ? (
+
+          <IntegrityCheck projects={projects} />
+
         ) : window.innerWidth > 768 ? (
 
          <History

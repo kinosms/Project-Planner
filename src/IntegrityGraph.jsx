@@ -268,16 +268,16 @@ export default function IntegrityGraph({
   highlightScenarioFeatures,
   onNodeSelect, onFeatureSelect, onScenarioSelect,
   onNavigate,
-  // 엣지 flow 마커: active edge의 source/target ID만 전달
-  animSourceFnId,   // string | null
-  animTargetFnId,   // string | null
+  // 엣지 flow 마커: active edge source/target (ref sync으로 리렌더 방지)
+  animSourceFnId,
+  animTargetFnId,
 }) {
   const canvasAreaRef = useRef(null)
   const graphRef      = useRef(null)
   const [canvasWidth, setCanvasWidth] = useState(960)
   const [graphReady,  setGraphReady]  = useState(false)
 
-  // ── Selection state (React state — drives reactive props) ──────
+  // ── Selection state ────────────────────────────────────────────
   const [selectedNodeId,     setSelectedNodeId]     = useState(null)
   const [selectedFeatureId,  setSelectedFeatureId]  = useState(null)
   const [selectedScenarioId, setSelectedScenarioId] = useState(null)
@@ -286,6 +286,17 @@ export default function IntegrityGraph({
   const [mousePos,           setMousePos]           = useState({ x:0, y:0 })
   const [searchTerm, setSearchTerm] = useState('')
   const [filter,     setFilter]     = useState('all')
+
+  // ── Refs for callback isolation (변경 시 리렌더 없이 최신값 읽기) ──
+  const animSrcRef    = useRef(null)
+  const animTgtRef    = useRef(null)
+  const activeSetRef  = useRef(null)
+  const selNodeRef    = useRef(null)
+  const hasSelRef     = useRef(false)
+
+  // props → ref sync (렌더 때마다 동기화, 콜백 deps 불필요)
+  animSrcRef.current   = animSourceFnId
+  animTgtRef.current   = animTargetFnId
 
   // ── activeSet: 현재 선택과 관련된 함수 ID Set ─────────────────
   const graphData = useMemo(() => buildGraphData(functionList, featureList), [functionList, featureList])
@@ -336,96 +347,98 @@ export default function IntegrityGraph({
 
   const hasSelection = activeSet !== null
 
-  // ── Reactive node/link color callbacks ─────────────────────────
-  // ForceGraph3D는 이 함수들을 매 프레임 재호출하므로 state 변경이 즉시 반영됨
+  // ref 동기화 (콜백 deps 없이 최신값 접근)
+  activeSetRef.current = activeSet
+  selNodeRef.current   = selectedNodeId
+  hasSelRef.current    = hasSelection
+
+  // ── 안정 콜백 (deps = [] — 절대 재생성 안 함) ────────────────
+  // ForceGraph3D는 매 프레임 이 함수들을 호출하므로 ref로 최신값을 읽음
+  const getNodeId = useCallback(v => (typeof v === 'object' ? v.id : v), [])
+
   const getNodeColor = useCallback(node => {
-    if (!hasSelection) return SCORE_COLOR(node.score)
-    if (activeSet.has(node.id)) return SCORE_COLOR(node.score)
-    // dim: rgba 포함 색상으로 투명도 표현
+    const as = activeSetRef.current
+    if (!as) return SCORE_COLOR(node.score)
+    if (as.has(node.id)) return SCORE_COLOR(node.score)
     return toRgba(DIM_COLOR, DIM_ALPHA)
-  }, [hasSelection, activeSet])
+  }, [])
 
   const getNodeVal = useCallback(node => {
     const base = Math.max(8, Math.min(28, 8 + node.calls * 0.7 + node.degree * 0.9))
-    if (!hasSelection) return base
-    if (node.id === selectedNodeId) return base * 2.0   // 선택 노드 확대
-    if (activeSet.has(node.id)) return base * 1.3
-    return base * 0.4   // dim 노드 축소
-  }, [hasSelection, activeSet, selectedNodeId])
-
-  // active edge 판별: source/target이 animSourceFnId → animTargetFnId 인지
-  const isActiveFlowEdge = useCallback((s, t) => {
-    if (!animSourceFnId || !animTargetFnId) return false
-    return s === animSourceFnId && t === animTargetFnId
-  }, [animSourceFnId, animTargetFnId])
+    const as  = activeSetRef.current
+    const sel = selNodeRef.current
+    if (!as) return base
+    if (node.id === sel) return base * 2.0
+    if (as.has(node.id)) return base * 1.3
+    return base * 0.4
+  }, [])
 
   const getLinkColor = useCallback(link => {
-    const s = typeof link.source === 'object' ? link.source.id : link.source
-    const t = typeof link.target === 'object' ? link.target.id : link.target
-
-    // flow 마커: active edge만 밝게, 나머지는 기존 로직
-    if (isActiveFlowEdge(s, t)) return 'rgba(99,220,255,0.95)'
-
-    if (!hasSelection) return 'rgba(96,165,250,0.22)'
-    if (activeSet.has(s) && activeSet.has(t)) {
-      if (selectedNodeId && (s === selectedNodeId || t === selectedNodeId))
-        return 'rgba(147,197,253,0.90)'
+    const s = getNodeId(link.source), t = getNodeId(link.target)
+    // flow 마커 (ref로 최신값 읽음 — deps 불필요)
+    if (animSrcRef.current && s === animSrcRef.current && t === animTgtRef.current)
+      return 'rgba(99,220,255,0.95)'
+    const as  = activeSetRef.current
+    const sel = selNodeRef.current
+    const hs  = hasSelRef.current
+    if (!hs) return 'rgba(96,165,250,0.22)'
+    if (as.has(s) && as.has(t)) {
+      if (sel && (s === sel || t === sel)) return 'rgba(147,197,253,0.90)'
       return 'rgba(147,197,253,0.55)'
     }
     return 'rgba(55,65,81,0.08)'
-  }, [hasSelection, activeSet, selectedNodeId, isActiveFlowEdge])
+  }, [getNodeId])
 
   const getLinkWidth = useCallback(link => {
-    const s = typeof link.source === 'object' ? link.source.id : link.source
-    const t = typeof link.target === 'object' ? link.target.id : link.target
-
-    if (isActiveFlowEdge(s, t)) return 3.5
-
-    if (!hasSelection) return 0.8
-    if (activeSet.has(s) && activeSet.has(t)) {
-      if (selectedNodeId && (s === selectedNodeId || t === selectedNodeId)) return 3.0
+    const s = getNodeId(link.source), t = getNodeId(link.target)
+    if (animSrcRef.current && s === animSrcRef.current && t === animTgtRef.current) return 3.5
+    const as  = activeSetRef.current
+    const sel = selNodeRef.current
+    const hs  = hasSelRef.current
+    if (!hs) return 0.8
+    if (as.has(s) && as.has(t)) {
+      if (sel && (s === sel || t === sel)) return 3.0
       return 1.5
     }
     return 0.0
-  }, [hasSelection, activeSet, selectedNodeId, isActiveFlowEdge])
+  }, [getNodeId])
 
   const getLinkParticles = useCallback(link => {
-    const s = typeof link.source === 'object' ? link.source.id : link.source
-    const t = typeof link.target === 'object' ? link.target.id : link.target
-
-    // active flow edge: 파티클 최대
-    if (isActiveFlowEdge(s, t)) return 14
-
-    if (!hasSelection) return 2
-    if (activeSet.has(s) && activeSet.has(t)) {
-      if (selectedNodeId && (s === selectedNodeId || t === selectedNodeId)) return 8
+    const s = getNodeId(link.source), t = getNodeId(link.target)
+    if (animSrcRef.current && s === animSrcRef.current && t === animTgtRef.current) return 14
+    const as  = activeSetRef.current
+    const sel = selNodeRef.current
+    const hs  = hasSelRef.current
+    if (!hs) return 2
+    if (as.has(s) && as.has(t)) {
+      if (sel && (s === sel || t === sel)) return 8
       return 4
     }
     return 0
-  }, [hasSelection, activeSet, selectedNodeId, isActiveFlowEdge])
+  }, [getNodeId])
 
   const getLinkParticleSpeed = useCallback(link => {
-    const s = typeof link.source === 'object' ? link.source.id : link.source
-    const t = typeof link.target === 'object' ? link.target.id : link.target
-    if (isActiveFlowEdge(s, t)) return 0.014   // flow edge: 빠르게
+    const s = getNodeId(link.source), t = getNodeId(link.target)
+    if (animSrcRef.current && s === animSrcRef.current && t === animTgtRef.current) return 0.014
     return 0.005
-  }, [isActiveFlowEdge])
+  }, [getNodeId])
 
   const getLinkParticleColor = useCallback(link => {
-    const s = typeof link.source === 'object' ? link.source.id : link.source
-    const t = typeof link.target === 'object' ? link.target.id : link.target
-    if (isActiveFlowEdge(s, t)) return '#63dcff'  // 사이언 flow 파티클
+    const s = getNodeId(link.source), t = getNodeId(link.target)
+    if (animSrcRef.current && s === animSrcRef.current && t === animTgtRef.current) return '#63dcff'
     return '#93c5fd'
-  }, [isActiveFlowEdge])
+  }, [getNodeId])
 
   const getLinkArrowColor = useCallback(link => {
-    const s = typeof link.source === 'object' ? link.source.id : link.source
-    const t = typeof link.target === 'object' ? link.target.id : link.target
-    if (isActiveFlowEdge(s, t)) return 'rgba(99,220,255,1.0)'
-    if (!hasSelection) return 'rgba(96,165,250,0.35)'
-    if (activeSet.has(s) && activeSet.has(t)) return 'rgba(147,197,253,0.8)'
+    const s = getNodeId(link.source), t = getNodeId(link.target)
+    if (animSrcRef.current && s === animSrcRef.current && t === animTgtRef.current)
+      return 'rgba(99,220,255,1.0)'
+    const as = activeSetRef.current
+    const hs = hasSelRef.current
+    if (!hs) return 'rgba(96,165,250,0.35)'
+    if (as.has(s) && as.has(t)) return 'rgba(147,197,253,0.8)'
     return 'rgba(0,0,0,0)'
-  }, [hasSelection, activeSet, isActiveFlowEdge])
+  }, [getNodeId])
 
   // ── Canvas width ──────────────────────────────────────────────
   useEffect(() => {
@@ -617,9 +630,11 @@ export default function IntegrityGraph({
 
   // ── 완전 커스텀 노드 오브젝트 ────────────────────────────────
   const nodeThreeObject = useCallback(node => {
-    const isActive = activeSet ? activeSet.has(node.id) : false
-    const isSel    = node.id === selectedNodeId
-    const isDim    = hasSelection && !isActive
+    // refs로 읽어 deps 제거 — nodeThreeObject가 재생성되지 않음
+    const as       = activeSetRef.current
+    const isActive = as ? as.has(node.id) : false
+    const isSel    = node.id === selNodeRef.current
+    const isDim    = hasSelRef.current && !isActive
 
     const r        = Math.max(3.5, Math.min(12, 3.5 + node.calls * 0.28 + node.degree * 0.38))
     const scoreCol = SCORE_COLOR(node.score)
@@ -716,7 +731,7 @@ export default function IntegrityGraph({
     }
 
     return group
-  }, [activeSet, selectedNodeId, hasSelection, makeLabelTexture])
+  }, [makeLabelTexture])  // deps 최소화 — selection은 refs로 읽음
 
   // nodeThreeObjectExtend=false → 기본 구체 완전 교체
   const nodeThreeObjectExtend = false
@@ -762,7 +777,7 @@ export default function IntegrityGraph({
           // Physics
           d3AlphaDecay={0.05}
           d3VelocityDecay={0.60}
-          cooldownTicks={200}
+          cooldownTicks={0}
           // Node
           nodeColor={getNodeColor}
           nodeVal={getNodeVal}

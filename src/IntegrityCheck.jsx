@@ -1337,21 +1337,45 @@ export default function IntegrityCheck({ projects }) {
   ]
 
   // ─── 시나리오에 featureFlowObj + paths 자동 생성 ─────────────────
-  const enrichedScenarios = useMemo(() => scenarioList.map(sc => ({
-    ...sc,
-    // 기능 객체 배열 (featureName → { featureId, featureName, functions[] })
-    featureFlowObj: sc.featureFlow.map((fname, fi) => ({
-      featureId: fname,
-      featureName: fname,
-      functions: buildFeatureFunctions(fname),
-    })),
-    // 기본 경로: featureFlow 전체 함수 순서대로
-    paths: sc.paths || [{
-      id: `${sc.id}-default`,
-      name: '기본 흐름 경로',
-      functionIds: sc.featureFlow.flatMap(fname => buildFeatureFunctions(fname).map(f => f.id)),
-    }],
-  })), [scenarioList, featureList, functionList]) // eslint-disable-line
+  // 공통 진입 경로 — 앱 실행 + 플래너 이동 + 잠금 해제
+  // 모든 시나리오 featureFlow 앞에 자동 삽입 (중복 방지)
+  const COMMON_ENTRY = ['앱 초기화 및 DB 로드', '잠금/편집 전환']
+
+  const enrichedScenarios = useMemo(() => scenarioList.map(sc => {
+    // 공통 진입 경로 prepend (이미 있으면 스킵)
+    const baseFlow = sc.featureFlow
+    const needsEntry = !baseFlow.includes('앱 초기화 및 DB 로드')
+    const needsUnlock = !baseFlow.includes('잠금/편집 전환') &&
+      // 대시보드만 보는 시나리오는 잠금 불필요
+      !['S01','S07'].includes(sc.id)
+
+    const fullFlow = [
+      ...(needsEntry ? ['앱 초기화 및 DB 로드'] : []),
+      ...(needsUnlock ? ['잠금/편집 전환'] : []),
+      ...baseFlow,
+    ]
+
+    // 중복 제거 (순서 유지)
+    const seen = new Set()
+    const deduped = fullFlow.filter(f => { if (seen.has(f)) return false; seen.add(f); return true })
+
+    const fullFunctionIds = deduped.flatMap(fname => buildFeatureFunctions(fname).map(f => f.id))
+
+    return {
+      ...sc,
+      featureFlow: deduped,  // 전체 경로로 교체
+      featureFlowObj: deduped.map(fname => ({
+        featureId: fname,
+        featureName: fname,
+        functions: buildFeatureFunctions(fname),
+      })),
+      paths: sc.paths || [{
+        id: `${sc.id}-default`,
+        name: '기본 흐름 경로',
+        functionIds: fullFunctionIds,
+      }],
+    }
+  }), [scenarioList, featureList, functionList]) // eslint-disable-line
 
   const avgScenarioScore = Math.round(scenarioList.reduce((s, sc) => s + sc.score, 0) / scenarioList.length)
   const highRiskScenarios = scenarioList.filter(sc => sc.riskLevel === '높음')

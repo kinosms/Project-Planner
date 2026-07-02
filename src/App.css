@@ -2172,7 +2172,8 @@ h1 {
 .integrity-page {
   padding: 24px;
   overflow-y: auto;
-  height: 100%;
+  /* topbar(98px) + app padding(20px) + margin-bottom(10px) 제외한 뷰포트 높이 */
+  height: calc(100vh - 128px);
   box-sizing: border-box;
 }
 
@@ -2459,49 +2460,63 @@ h1 {
 
 .feature-body {
   padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;   /* 2컬럼 가로 배치 */
+  gap: 8px 24px;
+  align-items: start;
 }
 
+/* 기능 목적/시작·종료·성공 조건은 왼쪽 컬럼 전체 폭 */
 .feature-row {
   display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 8px;
+  grid-template-columns: 100px 1fr;
+  gap: 6px;
   align-items: start;
 }
 
 .feature-row dt {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #64748b;
   padding-top: 2px;
   white-space: nowrap;
+  font-family: monospace;
 }
 
 .feature-row dd {
-  font-size: 12px;
+  font-size: 11px;
   color: #374151;
-  line-height: 1.6;
+  line-height: 1.55;
   margin: 0;
 }
 
+/* Feature Flow: 가로 스크롤 */
 .feature-flow {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;      /* 가로 배치 */
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99,120,180,0.15) transparent;
+  grid-column: 1 / -1;      /* 2컬럼 모두 차지 */
 }
 
 .flow-step {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
 }
 
 .flow-arrow {
-  font-size: 11px;
+  font-size: 14px;
   color: #94a3b8;
-  padding-left: 4px;
+  padding: 0 6px;
+  flex-shrink: 0;
+  font-weight: 300;
 }
 
 .feature-row code {
@@ -3913,14 +3928,23 @@ h1 {
 /* Feature Flow 목록 */
 .sc2-feature-flow {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;    /* 가로 배치 */
+  flex-wrap: nowrap;
+  align-items: flex-start;
   gap: 0;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99,120,180,0.15) transparent;
 }
 
 .sc2-feat-item {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;    /* 가로 방향으로 화살표 + 카드 */
+  align-items: flex-start;
   gap: 0;
+  flex-shrink: 0;
+  max-width: 220px;
 }
 
 .sc2-feat-arrow {
@@ -3933,14 +3957,18 @@ h1 {
 
 .sc2-feat-head {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  flex-direction: column;   /* 세로 배치로 좁은 카드 */
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 10px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   cursor: pointer;
   background: #fff;
   transition: all 0.14s;
+  width: 180px;
+  min-height: 60px;
+  flex-shrink: 0;
 }
 .sc2-feat-head:hover { background: #f0f9ff; border-color: rgba(59,130,246,0.3); }
 
@@ -3964,11 +3992,26 @@ h1 {
   border-color: #fca5a5;
 }
 
-.sc2-feat-arrow-icon { font-size: 11px; color: #94a3b8; flex-shrink: 0; }
-.sc2-feat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.sc2-feat-name { font-size: 12px; font-weight: 600; color: #1e293b; flex: 1; }
+.sc2-feat-arrow-icon { font-size: 10px; color: #94a3b8; flex-shrink: 0; }
+.sc2-feat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sc2-feat-name { font-size: 11px; font-weight: 600; color: #1e293b; line-height: 1.3; white-space: normal; word-break: break-word; }
 .sc2-feat-fn-count { font-size: 10px; color: #94a3b8; font-family: monospace; }
 .sc2-feat-score { font-size: 11px; font-weight: 700; font-family: monospace; }
+
+/* 카드 상단: dot + 화살표 + 이름 가로 */
+.sc2-feat-head-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+}
+/* 카드 하단: 함수수 + 점수 */
+.sc2-feat-head-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
 
 .sc2-danger-badge {
   font-size: 9px;
@@ -4068,27 +4111,44 @@ h1 {
 
 .sc2-danger-section { margin-top: 4px; }
 
-/* ─── Scenario Step Flow ─────────────────────────────────────── */
+/* ─── Scenario Step Flow — 가로 배치 ─────────────────────────── */
 .sc2-steps {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-direction: row;    /* 가로 배치 */
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
   margin-top: 8px;
   padding: 10px 12px;
   background: #f1f5f9;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99,120,180,0.15) transparent;
 }
 
 .sc2-step-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 11px;
-  padding: 3px 5px;
-  border-radius: 4px;
-  transition: background 0.14s;
+  padding: 4px 8px;
+  border-radius: 5px;
   color: #64748b;
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* 스텝 사이 화살표 */
+  position: relative;
+}
+
+/* 스텝 사이 → 구분선 */
+.sc2-step-row + .sc2-step-row::before {
+  content: '→';
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-right: 8px;
+  font-weight: 300;
 }
 
 .sc2-step-row.sc2-step-current {
@@ -4129,7 +4189,7 @@ h1 {
   color: #16a34a;
 }
 
-.sc2-step-label { flex: 1; line-height: 1.4; }
+.sc2-step-label { flex: none; line-height: 1.4; max-width: 180px; white-space: normal; font-size: 11px; }
 
 .sc2-step-dot {
   font-size: 12px;

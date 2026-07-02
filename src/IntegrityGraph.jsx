@@ -484,16 +484,20 @@ export default function IntegrityGraph({
       if (!graphRef.current) return
       clearInterval(timer)
       const groups = [...new Set(graphData.nodes.map(n => n.featureGroup))]
-      const N = groups.length, R = 95, centers = {}
+      const N = groups.length, R = 110, centers = {}  // 적절한 반지름 (너무 넓으면 시나리오 뷰 불편)
       groups.forEach((g, i) => {
         const phi = Math.acos(1 - (2*(i+0.5))/N)
         const theta = Math.PI * (1 + Math.sqrt(5)) * i
         centers[g] = { x: R*Math.sin(phi)*Math.cos(theta), y: R*Math.cos(phi)*0.5, z: R*Math.sin(phi)*Math.sin(theta) }
       })
+      // charge force: 노드 간 반발력으로 겹침 방지
+      const chargeForce = graphRef.current.d3Force('charge')
+      if (chargeForce) chargeForce.strength(-160)  // 반발력 적당히 (너무 강하면 흩어짐)
+
       graphRef.current.d3Force('cluster', alpha => {
         graphData.nodes.forEach(node => {
           const c = centers[node.featureGroup]; if (!c) return
-          const s = 0.12 * alpha
+          const s = 0.08 * alpha   // 클러스터 인력 살짝 줄여 반발력과 균형
           node.vx = (node.vx||0) + (c.x-(node.x||0))*s
           node.vy = (node.vy||0) + (c.y-(node.y||0))*s*0.4
           node.vz = (node.vz||0) + (c.z-(node.z||0))*s
@@ -515,46 +519,79 @@ export default function IntegrityGraph({
     }, 60)
   }, [])
 
+  // ── 노드 집합의 centroid + 적정 카메라 거리 계산 ─────────────
+  const flyToNodes = useCallback((nodeIds, ms = 1100) => {
+    if (!graphRef.current || !nodeIds?.length) return
+    const allNodes = graphData.nodes
+    const targets = nodeIds
+      .map(id => allNodes.find(n => n.id === id))
+      .filter(n => n && (n.fx ?? n.x) != null)
+    if (!targets.length) return
+
+    const cx = targets.reduce((s, n) => s + (n.fx ?? n.x ?? 0), 0) / targets.length
+    const cy = targets.reduce((s, n) => s + (n.fy ?? n.y ?? 0), 0) / targets.length
+    const cz = targets.reduce((s, n) => s + (n.fz ?? n.z ?? 0), 0) / targets.length
+
+    // 노드들이 모두 들어오도록 spread 기반 카메라 거리 계산
+    const spread = targets.reduce((m, n) => {
+      const dx = (n.fx??n.x??0)-cx, dy = (n.fy??n.y??0)-cy, dz = (n.fz??n.z??0)-cz
+      return Math.max(m, Math.sqrt(dx*dx+dy*dy+dz*dz))
+    }, 0)
+    const D = Math.min(350, Math.max(120, spread * 1.8 + 60))
+
+    // 카메라 위치: centroid에서 약간 위+앞에서 바라봄
+    flyTo(cx + D*0.5, cy + D*0.35, cz + D*0.7, { x:cx, y:cy, z:cz }, ms)
+  }, [graphData.nodes, flyTo])
+
   // ── Select handlers ───────────────────────────────────────────
   const handleSelectNode = useCallback(name => {
     const next = name === selectedNodeId ? null : name
     setSelectedNodeId(next)
     setSelectedFeatureId(null)
     setSelectedScenarioId(null)
-    if (next && graphRef.current) {
-      const node = graphData.nodes.find(n => n.id === next)
-      const nx = node?.fx ?? node?.x ?? 0
-      const ny = node?.fy ?? node?.y ?? 0
-      const nz = node?.fz ?? node?.z ?? 0
-      flyTo(nx/2 + 160, ny/2 + 80, nz/2 + 160, { x:0, y:0, z:0 }, 1000)
+    if (next) {
+      // 선택 노드 + 직접 연결 노드들을 centroid로 카메라 이동
+      const connIds = [next, ...(adjacency[next] ? [...adjacency[next]] : [])]
+      flyToNodes(connIds, 1000)
       scrollToGraph()
     }
     onNodeSelect?.(next)
-  }, [selectedNodeId, graphData.nodes, flyTo, onNodeSelect, scrollToGraph])
+  }, [selectedNodeId, adjacency, flyToNodes, onNodeSelect, scrollToGraph])
 
   const handleSelectFeature = useCallback(name => {
     const next = name === selectedFeatureId ? null : name
     setSelectedFeatureId(next)
     setSelectedNodeId(null)
     setSelectedScenarioId(null)
-    if (next) {
-      flyTo(0, 120, 280, { x:0, y:0, z:0 }, 1200)
+    if (next && graphRef.current) {
+      const feat = featureList.find(f => f.name === next)
+      if (feat) {
+        const ids = extractFuncNamesOrdered(feat.flow, knownSet)
+        flyToNodes(ids, 1200)
+      }
       scrollToGraph()
     }
     onFeatureSelect?.(next)
-  }, [selectedFeatureId, flyTo, onFeatureSelect, scrollToGraph])
+  }, [selectedFeatureId, featureList, knownSet, flyToNodes, onFeatureSelect, scrollToGraph])
 
   const handleSelectScenario = useCallback(id => {
     const next = id === selectedScenarioId ? null : id
     setSelectedScenarioId(next)
     setSelectedNodeId(null)
     setSelectedFeatureId(null)
-    if (next) {
-      flyTo(0, 120, 280, { x:0, y:0, z:0 }, 1200)
+    if (next && graphRef.current) {
+      const sc = scenarioList?.find(s => s.id === next)
+      if (sc) {
+        const ids = sc.featureFlow.flatMap(fname => {
+          const feat = featureList.find(f => f.name === fname)
+          return feat ? extractFuncNamesOrdered(feat.flow, knownSet) : []
+        })
+        flyToNodes([...new Set(ids)], 1300)
+      }
       scrollToGraph()
     }
     onScenarioSelect?.(next)
-  }, [selectedScenarioId, flyTo, onScenarioSelect, scrollToGraph])
+  }, [selectedScenarioId, scenarioList, featureList, knownSet, flyToNodes, onScenarioSelect, scrollToGraph])
 
   const handleClearSelection = useCallback(() => {
     setSelectedNodeId(null); setSelectedFeatureId(null); setSelectedScenarioId(null)
@@ -767,6 +804,12 @@ export default function IntegrityGraph({
         ref={canvasAreaRef}
         className="graph-canvas-area"
         onMouseLeave={() => { setHoveredNode(null); setHoveredVisible(false) }}
+        onDoubleClick={e => {
+          // 빈 캔버스 더블클릭 → 전체 그래프 뷰로 복귀
+          if (e.target.tagName === 'CANVAS') {
+            flyTo(0, 120, 360, { x:0, y:0, z:0 }, 800)
+          }
+        }}
       >
         <ForceGraph3D
           ref={graphRef}
@@ -774,9 +817,10 @@ export default function IntegrityGraph({
           width={canvasWidth}
           height={450}
           backgroundColor="#050b18"
-          // Physics
-          d3AlphaDecay={0.05}
-          d3VelocityDecay={0.60}
+          // warmupTicks: 보이지 않게 레이아웃 계산 → cooldownTicks=0으로 즉시 멈춤
+          d3AlphaDecay={0.03}
+          d3VelocityDecay={0.45}
+          warmupTicks={200}
           cooldownTicks={0}
           // Node
           nodeColor={getNodeColor}
@@ -800,8 +844,12 @@ export default function IntegrityGraph({
           onRenderFramePre={handleRenderFrame}
           onNodeClick={node => handleSelectNode(node.id)}
           onNodeDoubleClick={node => {
-            const nx = node.fx??node.x??0, ny = node.fy??node.y??0, nz = node.fz??node.z??0
-            flyTo(nx+32, ny+16, nz+32, { x:nx, y:ny, z:nz }, 600)
+            // 더블클릭: 해당 노드를 화면 중앙으로, 적절한 거리로 줌인
+            const nx = node.fx??node.x??0
+            const ny = node.fy??node.y??0
+            const nz = node.fz??node.z??0
+            const D = 90  // 노드 하나를 크게 보는 거리
+            flyTo(nx + D*0.55, ny + D*0.38, nz + D*0.75, { x:nx, y:ny, z:nz }, 700)
           }}
           onNodeHover={handleNodeHover}
           enableNodeDrag={false}

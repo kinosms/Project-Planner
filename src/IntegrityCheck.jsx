@@ -1982,7 +1982,7 @@ export default function IntegrityCheck({ projects }) {
                       isDanger ? 'sc2-feat-danger' : '',
                       isFeatAct ? 'sc2-feat-selected' : '',
                     ].join(' ')}>
-                      {fi > 0 && <div className="sc2-feat-arrow">↓</div>}
+                      {fi > 0 && <div className="sc2-feat-arrow">→</div>}
 
                       {/* Feature 헤더 */}
                       <div className="sc2-feat-head"
@@ -1997,12 +1997,16 @@ export default function IntegrityCheck({ projects }) {
                           document.querySelector('.integrity-page')?.scrollTo({ top:0, behavior:'smooth' })
                         }}
                       >
-                        <span className="sc2-feat-arrow-icon">{isOpen ? '▾' : '▸'}</span>
-                        <span className="sc2-feat-dot" style={{ background: score>=80?'#22c55e':score>=60?'#eab308':'#ef4444' }}/>
-                        <span className="sc2-feat-name">{fobj.featureName}</span>
-                        <span className="sc2-feat-fn-count">{fobj.functions.length}개</span>
-                        {score !== null && <span className={['sc2-feat-score', score>=80?'score-high':score>=60?'score-mid':'score-low'].join(' ')}>{score}</span>}
-                        {isDanger && <span className="sc2-danger-badge">⚠ 위험</span>}
+                        <div className="sc2-feat-head-top">
+                          <span className="sc2-feat-dot" style={{ background: score>=80?'#22c55e':score>=60?'#eab308':'#ef4444' }}/>
+                          <span className="sc2-feat-name">{fobj.featureName}</span>
+                          <span className="sc2-feat-arrow-icon">{isOpen ? '▾' : '▸'}</span>
+                        </div>
+                        <div className="sc2-feat-head-bottom">
+                          <span className="sc2-feat-fn-count">{fobj.functions.length}개 함수</span>
+                          {score !== null && <span className={['sc2-feat-score', score>=80?'score-high':score>=60?'score-mid':'score-low'].join(' ')}>{score}</span>}
+                          {isDanger && <span className="sc2-danger-badge">⚠</span>}
+                        </div>
                       </div>
 
                       {/* 함수 목록 — 정적 */}

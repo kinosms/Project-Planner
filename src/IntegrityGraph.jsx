@@ -2,10 +2,10 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import ForceGraph3D from 'react-force-graph-3d'
 import * as THREE from 'three'
 
-// ─── 상수 ────────────────────────────────────────────────────────
+// ─── 색상 ────────────────────────────────────────────────────────
 const SCORE_COLOR = s => s>=90?'#22c55e':s>=70?'#3b82f6':s>=50?'#eab308':s>=30?'#f97316':'#ef4444'
-const GRAY = '#2a3040'          // dim 상태 노드 색상
-const GRAY_THREE = new THREE.Color(GRAY)
+const DIM_COLOR   = '#374151'   // dim 상태 노드 색
+const DIM_ALPHA   = 0.18        // dim 상태 투명도
 
 const CLUSTER_COLORS = [
   '#818cf8','#34d399','#f472b6','#fb923c',
@@ -14,8 +14,13 @@ const CLUSTER_COLORS = [
   '#f87171','#c084fc',
 ]
 
-// lerp util
-const lerp = (a, b, t) => a + (b - a) * t
+// hex + alpha → rgba string
+const toRgba = (hex, a) => {
+  const r = parseInt(hex.slice(1,3),16)
+  const g = parseInt(hex.slice(3,5),16)
+  const b = parseInt(hex.slice(5,7),16)
+  return `rgba(${r},${g},${b},${a})`
+}
 
 // ─── 유틸 ────────────────────────────────────────────────────────
 const extractFuncNames = (flowArr, knownSet) => {
@@ -23,56 +28,12 @@ const extractFuncNames = (flowArr, knownSet) => {
   flowArr.forEach(step => knownSet.forEach(n => { if (step.includes(n)) found.add(n) }))
   return [...found]
 }
-
-// Feature flow 순서대로 함수 추출 (순서 보존)
 const extractFuncNamesOrdered = (flowArr, knownSet) => {
   const result = [], seen = new Set()
-  flowArr.forEach(step => {
-    knownSet.forEach(n => {
-      if (step.includes(n) && !seen.has(n)) { seen.add(n); result.push(n) }
-    })
-  })
+  flowArr.forEach(step => knownSet.forEach(n => {
+    if (step.includes(n) && !seen.has(n)) { seen.add(n); result.push(n) }
+  }))
   return result
-}
-
-// ─── 텍스처 팩토리 (캐시) ────────────────────────────────────────
-const texCache = {}
-function makeLabelTex(name, scoreColor, featColor) {
-  const key = `${name}|${scoreColor}|${featColor}`
-  if (texCache[key]) return texCache[key]
-  const c = document.createElement('canvas')
-  c.width = 400; c.height = 64
-  const ctx = c.getContext('2d')
-  // dark bg
-  ctx.fillStyle = 'rgba(3,7,18,0.93)'
-  ctx.beginPath(); ctx.roundRect(0, 4, 400, 56, 9); ctx.fill()
-  // score accent left bar
-  ctx.fillStyle = scoreColor; ctx.fillRect(0, 4, 4, 56)
-  // feature dot
-  ctx.fillStyle = featColor
-  ctx.beginPath(); ctx.arc(18, 32, 5, 0, Math.PI*2); ctx.fill()
-  // name text
-  ctx.font = 'bold 20px monospace'; ctx.fillStyle = '#e2e8f0'
-  ctx.textAlign = 'left'; ctx.fillText(name, 30, 42)
-  const t = new THREE.CanvasTexture(c)
-  texCache[key] = t
-  return t
-}
-
-function makeFeatureTitleTex(name, color) {
-  const c = document.createElement('canvas')
-  const tw = Math.max(480, name.length * 20 + 80)
-  c.width = tw; c.height = 88
-  const ctx = c.getContext('2d')
-  ctx.fillStyle = 'rgba(3,7,18,0.96)'
-  ctx.beginPath(); ctx.roundRect(2, 4, tw-4, 80, 14); ctx.fill()
-  ctx.strokeStyle = color; ctx.lineWidth = 1.8
-  ctx.beginPath(); ctx.roundRect(2, 4, tw-4, 80, 14); ctx.stroke()
-  // glow line at top
-  ctx.fillStyle = color; ctx.fillRect(2, 4, tw-4, 3)
-  ctx.font = 'bold 28px monospace'; ctx.fillStyle = '#f1f5f9'
-  ctx.textAlign = 'center'; ctx.fillText(name, tw/2, 55)
-  return new THREE.CanvasTexture(c)
 }
 
 // ─── buildGraphData ───────────────────────────────────────────────
@@ -114,8 +75,8 @@ function buildGraphData(functionList, featureList) {
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────
-function Tooltip({ node, pos }) {
-  if (!node) return null
+function Tooltip({ node, pos, visible }) {
+  if (!node || !visible) return null
   return (
     <div className="graph-tooltip" style={{ left: pos.x + 18, top: pos.y - 10 }}>
       <div className="graph-tooltip-name">{node.name}</div>
@@ -127,7 +88,7 @@ function Tooltip({ node, pos }) {
   )
 }
 
-// ─── Focus Bar (현재 선택 표시) ───────────────────────────────────
+// ─── Focus Bar ───────────────────────────────────────────────────
 function FocusBar({ selectedNodeId, selectedFeatureId, nodeData, featureList, featureColorMap, onClear }) {
   if (!selectedNodeId && !selectedFeatureId) return null
   if (selectedNodeId) {
@@ -191,6 +152,7 @@ function SidePanel({
 
   useEffect(() => {
     if (!selectedNodeId || !fnRef.current) return
+    setSideTab('fn')
     fnRef.current.querySelector(`[data-id="${CSS.escape(selectedNodeId)}"]`)
       ?.scrollIntoView({ behavior:'smooth', block:'nearest' })
   }, [selectedNodeId])
@@ -211,7 +173,6 @@ function SidePanel({
 
   return (
     <div className="graph-side-panel">
-      {/* Tab switcher */}
       <div className="gsp-tabs">
         {[{id:'fn',label:'FN',count:fullFunctionList.length},{id:'feat',label:'FEAT',count:featureList.length},{id:'sc',label:'SC',count:scenarioList?.length||0}].map(t => (
           <button key={t.id} className={['gsp-tab-btn', sideTab===t.id?'active':''].join(' ')} onClick={() => setSideTab(t.id)}>
@@ -220,7 +181,6 @@ function SidePanel({
         ))}
       </div>
 
-      {/* Search + filter — only for fn */}
       {sideTab === 'fn' && (
         <div className="gsp-controls">
           <input className="gsp-search" placeholder="함수명 / ID 검색..."
@@ -235,7 +195,6 @@ function SidePanel({
         </div>
       )}
 
-      {/* Function list */}
       {sideTab === 'fn' && (
         <div className="gsp-section" style={{ flex:1 }}>
           <div className="gsp-section-title">
@@ -258,7 +217,6 @@ function SidePanel({
         </div>
       )}
 
-      {/* Feature list */}
       {sideTab === 'feat' && (
         <div className="gsp-section" style={{ flex:1 }}>
           <div className="gsp-section-title">FEATURES <span className="gsp-count">{featureList.length}</span></div>
@@ -281,7 +239,6 @@ function SidePanel({
         </div>
       )}
 
-      {/* Scenario list */}
       {sideTab === 'sc' && (
         <div className="gsp-section" style={{ flex:1 }}>
           <div className="gsp-section-title">SCENARIOS <span className="gsp-count">{scenarioList?.length||0}</span></div>
@@ -310,39 +267,27 @@ export default function IntegrityGraph({
   highlightNodeName, highlightFeatureName,
   highlightScenarioFeatures,
   onNodeSelect, onFeatureSelect, onScenarioSelect,
-  // cross-navigation callbacks from parent
-  onNavigate,   // ({ type, id }) => void
+  onNavigate,
+  // 엣지 flow 마커: active edge의 source/target ID만 전달
+  animSourceFnId,   // string | null
+  animTargetFnId,   // string | null
 }) {
   const canvasAreaRef = useRef(null)
   const graphRef      = useRef(null)
   const [canvasWidth, setCanvasWidth] = useState(960)
   const [graphReady,  setGraphReady]  = useState(false)
 
+  // ── Selection state (React state — drives reactive props) ──────
   const [selectedNodeId,     setSelectedNodeId]     = useState(null)
   const [selectedFeatureId,  setSelectedFeatureId]  = useState(null)
   const [selectedScenarioId, setSelectedScenarioId] = useState(null)
   const [hoveredNode,        setHoveredNode]        = useState(null)
+  const [hoveredVisible,     setHoveredVisible]     = useState(false)
   const [mousePos,           setMousePos]           = useState({ x:0, y:0 })
-
   const [searchTerm, setSearchTerm] = useState('')
   const [filter,     setFilter]     = useState('all')
 
-  // ── Mutable refs for render loop ──────────────────────────────
-  const selNodeRef    = useRef(null)
-  const selFeatRef    = useRef(null)
-  const hovNodeRef    = useRef(null)
-  const connectedRef  = useRef(null)        // Set<id> currently highlighted
-  const pathOrderRef  = useRef([])          // ordered func names for feature path
-  const scenarioRef   = useRef(null)        // Set<id> for scenario highlight (all feature members)
-  const nodeObjsRef   = useRef({})          // id → { group, core, glow1, glow2, ring1, ring2, label }
-  const pulseRef      = useRef(0)
-  const featTitleRef  = useRef(null)        // THREE.Sprite feature title in scene
-
-  useEffect(() => { selNodeRef.current = selectedNodeId }, [selectedNodeId])
-  useEffect(() => { selFeatRef.current = selectedFeatureId }, [selectedFeatureId])
-  useEffect(() => { hovNodeRef.current = hoveredNode?.id ?? null }, [hoveredNode])
-
-  // ── Stable data ───────────────────────────────────────────────
+  // ── activeSet: 현재 선택과 관련된 함수 ID Set ─────────────────
   const graphData = useMemo(() => buildGraphData(functionList, featureList), [functionList, featureList])
 
   const adjacency = useMemo(() => {
@@ -363,28 +308,124 @@ export default function IntegrityGraph({
     return m
   }, [featureList])
 
-  // ── Rebuild connected set + path order ────────────────────────
-  useEffect(() => {
+  // activeSet 계산: 선택 타입에 따라 활성화할 노드 ID 집합
+  const activeSet = useMemo(() => {
     if (selectedNodeId) {
+      // function 선택: 선택 노드 + 직접 연결 노드
       const s = new Set([selectedNodeId])
       ;(adjacency[selectedNodeId] || new Set()).forEach(id => s.add(id))
-      connectedRef.current = s
-      pathOrderRef.current = []
-    } else if (selectedFeatureId) {
-      const feat = featureList.find(f => f.name === selectedFeatureId)
-      if (feat) {
-        const ordered = extractFuncNamesOrdered(feat.flow, knownSet)
-        pathOrderRef.current = ordered
-        connectedRef.current = new Set(ordered)
-      } else {
-        connectedRef.current = null
-        pathOrderRef.current = []
-      }
-    } else {
-      connectedRef.current = null
-      pathOrderRef.current = []
+      return s
     }
-  }, [selectedNodeId, selectedFeatureId, adjacency, featureList, knownSet])
+    if (selectedFeatureId) {
+      const feat = featureList.find(f => f.name === selectedFeatureId)
+      if (!feat) return null
+      return new Set(extractFuncNamesOrdered(feat.flow, knownSet))
+    }
+    if (selectedScenarioId) {
+      const sc = scenarioList?.find(s => s.id === selectedScenarioId)
+      if (!sc) return null
+      const all = new Set()
+      sc.featureFlow.forEach(featName => {
+        const feat = featureList.find(f => f.name === featName)
+        if (feat) extractFuncNamesOrdered(feat.flow, knownSet).forEach(id => all.add(id))
+      })
+      return all
+    }
+    return null  // 선택 없음 → 전체 컬러
+  }, [selectedNodeId, selectedFeatureId, selectedScenarioId, adjacency, featureList, knownSet, scenarioList])
+
+  const hasSelection = activeSet !== null
+
+  // ── Reactive node/link color callbacks ─────────────────────────
+  // ForceGraph3D는 이 함수들을 매 프레임 재호출하므로 state 변경이 즉시 반영됨
+  const getNodeColor = useCallback(node => {
+    if (!hasSelection) return SCORE_COLOR(node.score)
+    if (activeSet.has(node.id)) return SCORE_COLOR(node.score)
+    // dim: rgba 포함 색상으로 투명도 표현
+    return toRgba(DIM_COLOR, DIM_ALPHA)
+  }, [hasSelection, activeSet])
+
+  const getNodeVal = useCallback(node => {
+    const base = Math.max(8, Math.min(28, 8 + node.calls * 0.7 + node.degree * 0.9))
+    if (!hasSelection) return base
+    if (node.id === selectedNodeId) return base * 2.0   // 선택 노드 확대
+    if (activeSet.has(node.id)) return base * 1.3
+    return base * 0.4   // dim 노드 축소
+  }, [hasSelection, activeSet, selectedNodeId])
+
+  // active edge 판별: source/target이 animSourceFnId → animTargetFnId 인지
+  const isActiveFlowEdge = useCallback((s, t) => {
+    if (!animSourceFnId || !animTargetFnId) return false
+    return s === animSourceFnId && t === animTargetFnId
+  }, [animSourceFnId, animTargetFnId])
+
+  const getLinkColor = useCallback(link => {
+    const s = typeof link.source === 'object' ? link.source.id : link.source
+    const t = typeof link.target === 'object' ? link.target.id : link.target
+
+    // flow 마커: active edge만 밝게, 나머지는 기존 로직
+    if (isActiveFlowEdge(s, t)) return 'rgba(99,220,255,0.95)'
+
+    if (!hasSelection) return 'rgba(96,165,250,0.22)'
+    if (activeSet.has(s) && activeSet.has(t)) {
+      if (selectedNodeId && (s === selectedNodeId || t === selectedNodeId))
+        return 'rgba(147,197,253,0.90)'
+      return 'rgba(147,197,253,0.55)'
+    }
+    return 'rgba(55,65,81,0.08)'
+  }, [hasSelection, activeSet, selectedNodeId, isActiveFlowEdge])
+
+  const getLinkWidth = useCallback(link => {
+    const s = typeof link.source === 'object' ? link.source.id : link.source
+    const t = typeof link.target === 'object' ? link.target.id : link.target
+
+    if (isActiveFlowEdge(s, t)) return 3.5
+
+    if (!hasSelection) return 0.8
+    if (activeSet.has(s) && activeSet.has(t)) {
+      if (selectedNodeId && (s === selectedNodeId || t === selectedNodeId)) return 3.0
+      return 1.5
+    }
+    return 0.0
+  }, [hasSelection, activeSet, selectedNodeId, isActiveFlowEdge])
+
+  const getLinkParticles = useCallback(link => {
+    const s = typeof link.source === 'object' ? link.source.id : link.source
+    const t = typeof link.target === 'object' ? link.target.id : link.target
+
+    // active flow edge: 파티클 최대
+    if (isActiveFlowEdge(s, t)) return 14
+
+    if (!hasSelection) return 2
+    if (activeSet.has(s) && activeSet.has(t)) {
+      if (selectedNodeId && (s === selectedNodeId || t === selectedNodeId)) return 8
+      return 4
+    }
+    return 0
+  }, [hasSelection, activeSet, selectedNodeId, isActiveFlowEdge])
+
+  const getLinkParticleSpeed = useCallback(link => {
+    const s = typeof link.source === 'object' ? link.source.id : link.source
+    const t = typeof link.target === 'object' ? link.target.id : link.target
+    if (isActiveFlowEdge(s, t)) return 0.014   // flow edge: 빠르게
+    return 0.005
+  }, [isActiveFlowEdge])
+
+  const getLinkParticleColor = useCallback(link => {
+    const s = typeof link.source === 'object' ? link.source.id : link.source
+    const t = typeof link.target === 'object' ? link.target.id : link.target
+    if (isActiveFlowEdge(s, t)) return '#63dcff'  // 사이언 flow 파티클
+    return '#93c5fd'
+  }, [isActiveFlowEdge])
+
+  const getLinkArrowColor = useCallback(link => {
+    const s = typeof link.source === 'object' ? link.source.id : link.source
+    const t = typeof link.target === 'object' ? link.target.id : link.target
+    if (isActiveFlowEdge(s, t)) return 'rgba(99,220,255,1.0)'
+    if (!hasSelection) return 'rgba(96,165,250,0.35)'
+    if (activeSet.has(s) && activeSet.has(t)) return 'rgba(147,197,253,0.8)'
+    return 'rgba(0,0,0,0)'
+  }, [hasSelection, activeSet, isActiveFlowEdge])
 
   // ── Canvas width ──────────────────────────────────────────────
   useEffect(() => {
@@ -394,73 +435,17 @@ export default function IntegrityGraph({
     return () => ro.disconnect()
   }, [])
 
-  // ── External highlight ────────────────────────────────────────
+  // ── External highlight from parent ────────────────────────────
   useEffect(() => { if (highlightNodeName) handleSelectNode(highlightNodeName) }, [highlightNodeName])     // eslint-disable-line
   useEffect(() => { if (highlightFeatureName) handleSelectFeature(highlightFeatureName) }, [highlightFeatureName]) // eslint-disable-line
-
-  // ── Scenario highlight: union of all member function IDs ──────
   useEffect(() => {
-    if (!highlightScenarioFeatures?.length) {
-      scenarioRef.current = null
-      return
-    }
-    const all = new Set()
-    highlightScenarioFeatures.forEach(featName => {
-      const feat = featureList.find(f => f.name === featName)
-      if (feat) extractFuncNamesOrdered(feat.flow, knownSet).forEach(id => all.add(id))
-    })
-    scenarioRef.current = all
-    // Clear node/feature selection so scenario takes precedence
-    setSelectedNodeId(null)
-    setSelectedFeatureId(null)
-    // Move camera to overview
-    if (graphRef.current && graphReady) {
-      graphRef.current.cameraPosition({ x:0, y:130, z:300 }, { x:0, y:0, z:0 }, 1200)
-    }
-  }, [highlightScenarioFeatures, featureList, knownSet, graphReady]) // eslint-disable-line
+    if (!highlightScenarioFeatures?.length) return
+    // scenario features → fake scenario selection
+    setSelectedScenarioId('__hl__')
+    setSelectedNodeId(null); setSelectedFeatureId(null)
+  }, [highlightScenarioFeatures])
 
-  // ── flyTo ─────────────────────────────────────────────────────
-  const flyTo = useCallback((tx, ty, tz, lookAt, ms = 1100) => {
-    graphRef.current?.cameraPosition({ x:tx, y:ty, z:tz }, lookAt, ms)
-  }, [])
-
-  // ── Inject cluster force ONCE after graph mounts ──────────────
-  // We do this in a useEffect so it runs before the first engine stop
-  useEffect(() => {
-    // Poll until graphRef is ready
-    const timer = setInterval(() => {
-      if (!graphRef.current) return
-      clearInterval(timer)
-
-      // Fibonacci sphere: spread clusters across a brain-shaped sphere
-      const groups = [...new Set(graphData.nodes.map(n => n.featureGroup))]
-      const N = groups.length
-      const R = 95
-      const centers = {}
-      groups.forEach((g, i) => {
-        const phi   = Math.acos(1 - (2 * (i + 0.5)) / N)
-        const theta = Math.PI * (1 + Math.sqrt(5)) * i
-        centers[g] = {
-          x: R * Math.sin(phi) * Math.cos(theta),
-          y: R * Math.cos(phi) * 0.5,          // flatten Y → oblate sphere
-          z: R * Math.sin(phi) * Math.sin(theta),
-        }
-      })
-
-      graphRef.current.d3Force('cluster', alpha => {
-        graphData.nodes.forEach(node => {
-          const c = centers[node.featureGroup]; if (!c) return
-          const s = 0.12 * alpha
-          node.vx = (node.vx || 0) + (c.x - (node.x || 0)) * s
-          node.vy = (node.vy || 0) + (c.y - (node.y || 0)) * s * 0.4
-          node.vz = (node.vz || 0) + (c.z - (node.z || 0)) * s
-        })
-      })
-    }, 80)
-    return () => clearInterval(timer)
-  }, [graphData.nodes])
-
-  // ── handleEngineStop: add lights, freeze positions ────────────
+  // ── Engine stop ───────────────────────────────────────────────
   const handleEngineStop = useCallback(() => {
     if (!graphRef.current) return
     const scene = graphRef.current.scene()
@@ -471,251 +456,45 @@ export default function IntegrityGraph({
       const p2 = new THREE.PointLight(0x6611cc, 6, 500); p2.position.set(-220, -100, 140); scene.add(p2)
       const p3 = new THREE.PointLight(0x0088cc, 5, 400); p3.position.set(180, 60, -130); scene.add(p3)
     }
-    // Hard-fix ALL node positions — prevents ANY further simulation movement
+    // 노드 위치 고정
     graphData.nodes.forEach(node => {
       if (node.x != null) { node.fx = node.x; node.fy = node.y; node.fz = node.z }
     })
     setGraphReady(true)
+    // 렌더 루프 유지 — 링 회전 애니메이션
+    graphRef.current.resumeAnimation?.()
   }, [graphData.nodes])
 
-  // ── nodeThreeObject (built once per node) ─────────────────────
-  const nodeThreeObject = useCallback(node => {
-    const base = Math.max(4, Math.min(14, 4 + node.calls * 0.34 + node.degree * 0.46))
-    const scoreHex = SCORE_COLOR(node.score)
-    const sc = new THREE.Color(scoreHex)
-    const cc = new THREE.Color(node.featureColor)
-    const group = new THREE.Group()
-
-    // Core
-    const core = new THREE.Mesh(
-      new THREE.SphereGeometry(base, 32, 32),
-      new THREE.MeshPhongMaterial({
-        color: sc, emissive: sc, emissiveIntensity: 0.65,
-        shininess: 90, transparent: true, opacity: 1,
+  // ── Cluster force ─────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!graphRef.current) return
+      clearInterval(timer)
+      const groups = [...new Set(graphData.nodes.map(n => n.featureGroup))]
+      const N = groups.length, R = 95, centers = {}
+      groups.forEach((g, i) => {
+        const phi = Math.acos(1 - (2*(i+0.5))/N)
+        const theta = Math.PI * (1 + Math.sqrt(5)) * i
+        centers[g] = { x: R*Math.sin(phi)*Math.cos(theta), y: R*Math.cos(phi)*0.5, z: R*Math.sin(phi)*Math.sin(theta) }
       })
-    )
-    group.add(core)
-
-    // Inner glow (feature cluster)
-    const glow1 = new THREE.Mesh(
-      new THREE.SphereGeometry(base * 1.85, 16, 16),
-      new THREE.MeshBasicMaterial({ color: cc, transparent: true, opacity: 0.08, side: THREE.BackSide })
-    )
-    group.add(glow1)
-
-    // Outer score glow
-    const glow2 = new THREE.Mesh(
-      new THREE.SphereGeometry(base * 3.4, 14, 14),
-      new THREE.MeshBasicMaterial({ color: sc, transparent: true, opacity: 0.03, side: THREE.BackSide })
-    )
-    group.add(glow2)
-
-    // Pulse ring (score color, horizontal)
-    const ring1 = new THREE.Mesh(
-      new THREE.TorusGeometry(base * 3.0, 0.6, 8, 56),
-      new THREE.MeshBasicMaterial({ color: sc, transparent: true, opacity: 0 })
-    )
-    ring1.rotation.x = Math.PI / 2; group.add(ring1)
-
-    // Secondary ring (feature color, tilted)
-    const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(base * 4.2, 0.35, 8, 56),
-      new THREE.MeshBasicMaterial({ color: cc, transparent: true, opacity: 0 })
-    )
-    ring2.rotation.z = Math.PI / 5; group.add(ring2)
-
-    // Label sprite — positioned to the RIGHT of the node
-    const label = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: makeLabelTex(node.name, scoreHex, node.featureColor),
-        transparent: true, opacity: 0, depthTest: false,
+      graphRef.current.d3Force('cluster', alpha => {
+        graphData.nodes.forEach(node => {
+          const c = centers[node.featureGroup]; if (!c) return
+          const s = 0.12 * alpha
+          node.vx = (node.vx||0) + (c.x-(node.x||0))*s
+          node.vy = (node.vy||0) + (c.y-(node.y||0))*s*0.4
+          node.vz = (node.vz||0) + (c.z-(node.z||0))*s
+        })
       })
-    )
-    const lw = base * 6.8, lh = base * 1.8
-    label.scale.set(lw, lh, 1)
-    // offset: right side + slight upward
-    label.position.set(base + lw * 0.5 + 3, base * 0.4, 0)
-    group.add(label)
+    }, 80)
+    return () => clearInterval(timer)
+  }, [graphData.nodes])
 
-    nodeObjsRef.current[node.id] = { group, core, glow1, glow2, ring1, ring2, label, base, scoreHex, featColor: node.featureColor }
-    return group
+  // ── flyTo ─────────────────────────────────────────────────────
+  const flyTo = useCallback((tx, ty, tz, lookAt, ms = 1100) => {
+    graphRef.current?.cameraPosition({ x:tx, y:ty, z:tz }, lookAt, ms)
   }, [])
 
-  // ── Feature title in 3D scene ─────────────────────────────────
-  const updateFeatureTitle = useCallback(featName => {
-    const scene = graphRef.current?.scene()
-    if (!scene) return
-    if (featTitleRef.current) {
-      scene.remove(featTitleRef.current)
-      featTitleRef.current.material?.map?.dispose()
-      featTitleRef.current.material?.dispose()
-      featTitleRef.current = null
-    }
-    if (!featName) return
-    const feat = featureList.find(f => f.name === featName)
-    if (!feat) return
-    const color = featureColorMap[featName] || '#60a5fa'
-    const ordered = extractFuncNamesOrdered(feat.flow, knownSet)
-    const fnodes = graphData.nodes.filter(n => ordered.includes(n.id) && n.x != null)
-    if (!fnodes.length) return
-    const cx = fnodes.reduce((s,n) => s+(n.x||0),0)/fnodes.length
-    const cy = fnodes.reduce((s,n) => s+(n.y||0),0)/fnodes.length
-    const cz = fnodes.reduce((s,n) => s+(n.z||0),0)/fnodes.length
-    const maxR = Math.max(30, ...fnodes.map(n => {
-      const dx=(n.x||0)-cx, dy=(n.y||0)-cy, dz=(n.z||0)-cz
-      return Math.sqrt(dx*dx+dy*dy+dz*dz)
-    }))
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: makeFeatureTitleTex(featName, color), transparent: true, opacity: 0.97, depthTest: false })
-    )
-    const sw = Math.max(70, maxR * 1.1 + 40)
-    sprite.scale.set(sw, sw * 0.18, 1)
-    sprite.position.set(cx, cy + maxR + 20, cz)
-    scene.add(sprite)
-    featTitleRef.current = sprite
-  }, [featureList, featureColorMap, knownSet, graphData.nodes])
-
-  useEffect(() => { if (graphReady) updateFeatureTitle(selectedFeatureId) }, [selectedFeatureId, graphReady, updateFeatureTitle])
-
-  // ── onRenderFramePre: per-frame visuals ───────────────────────
-  const handleRenderFrame = useCallback(() => {
-    if (!graphRef.current) return
-    pulseRef.current += 0.04
-
-    const selId     = selNodeRef.current
-    const selFeat   = selFeatRef.current
-    const hovId     = hovNodeRef.current
-    const connected  = connectedRef.current
-    const scenario   = scenarioRef.current
-    const pathOrder  = pathOrderRef.current
-    // scenario takes precedence over individual node/feature selection
-    const activeSet  = scenario || connected
-    const hasSelection = !!(selId || selFeat || scenario)
-
-    Object.entries(nodeObjsRef.current).forEach(([id, obj]) => {
-      const { group, core, glow1, glow2, ring1, ring2, label, base, scoreHex, featColor } = obj
-      const isSel  = id === selId
-      const isHov  = id === hovId
-      const isConn = activeSet ? activeSet.has(id) : false
-      const isDim  = hasSelection && !isConn && !isHov
-
-      // ── Scale ──────────────────────────────────────────────
-      const ts = isSel ? 1.9 : isConn && !selId ? 1.2 : isHov ? 1.35 : isConn ? 1.22 : 1.0
-      group.scale.x = lerp(group.scale.x, ts, 0.13)
-      group.scale.y = group.scale.z = group.scale.x
-
-      // ── Core color: grayscale when dim ──────────────────────
-      const tColor = isDim ? GRAY_THREE : new THREE.Color(scoreHex)
-      core.material.color.lerp(tColor, 0.12)
-      core.material.emissive.lerp(isDim ? GRAY_THREE : new THREE.Color(scoreHex), 0.12)
-
-      // ── Core opacity ────────────────────────────────────────
-      const tOp = isDim ? 0.18 : 1.0
-      core.material.opacity = lerp(core.material.opacity, tOp, 0.13)
-      core.material.transparent = isDim || core.material.opacity < 0.99
-      const tEm = isDim ? 0.0 : isSel ? 1.1 : isConn ? 0.78 : isHov ? 0.88 : 0.62
-      core.material.emissiveIntensity = lerp(core.material.emissiveIntensity, tEm, 0.11)
-
-      // ── Cluster glow ────────────────────────────────────────
-      const tG1 = isDim ? 0.0 : isSel ? 0.55 : isConn && selFeat ? 0.32 : isHov ? 0.24 : 0.07
-      glow1.material.opacity = lerp(glow1.material.opacity, tG1, 0.10)
-      glow1.material.color.lerp(isDim ? GRAY_THREE : new THREE.Color(featColor), 0.12)
-
-      // ── Score glow ──────────────────────────────────────────
-      const tG2 = isDim ? 0.0 : isSel ? 0.34 : isConn ? 0.16 : isHov ? 0.10 : 0.03
-      glow2.material.opacity = lerp(glow2.material.opacity, tG2, 0.10)
-
-      // ── Pulse ring 1 ────────────────────────────────────────
-      if (isSel) {
-        ring1.material.opacity = 0.55 + 0.32 * Math.sin(pulseRef.current * 2.1)
-        ring1.scale.x = ring1.scale.y = 1 + 0.14 * Math.sin(pulseRef.current * 1.7)
-      } else if (isConn && selFeat) {
-        // Feature path member: each node pulses with slight offset by path index
-        const idx = pathOrder.indexOf(id)
-        const offset = idx >= 0 ? idx * 0.55 : 0
-        ring1.material.opacity = 0.24 + 0.18 * Math.sin(pulseRef.current * 1.5 + offset)
-      } else {
-        ring1.material.opacity = lerp(ring1.material.opacity, 0, 0.12)
-      }
-
-      // ── Pulse ring 2 ────────────────────────────────────────
-      if (isSel) {
-        ring2.material.opacity = 0.30 + 0.22 * Math.sin(pulseRef.current * 1.4 + 1.2)
-        ring2.rotation.z += 0.009
-      } else {
-        ring2.material.opacity = lerp(ring2.material.opacity, 0, 0.12)
-      }
-
-      // ── Label visibility ────────────────────────────────────
-      // Show always for: selected, feature members (selFeat), direct neighbors (selId), hovered
-      const showLabel = isSel || isHov || (isConn && hasSelection)
-      const tL = showLabel ? (isSel ? 1.0 : 0.88) : 0.0
-      label.material.opacity = lerp(label.material.opacity, tL, 0.14)
-    })
-  }, [])
-
-  // ── Link callbacks ────────────────────────────────────────────
-  const getId = useCallback(v => (typeof v === 'object' ? v.id : v), [])
-
-  const getActiveSet = useCallback(() => scenarioRef.current || connectedRef.current, [])
-
-  const linkColor = useCallback(link => {
-    const s = getId(link.source), t = getId(link.target)
-    const active = getActiveSet()
-    const selId = selNodeRef.current
-    const hasSelection = !!(selId || selFeatRef.current || scenarioRef.current)
-    if (hasSelection && active && !(active.has(s) && active.has(t))) return 'rgba(30,40,60,0.0)'
-    if (scenarioRef.current) return 'rgba(168,120,255,0.65)'   // scenario = purple path
-    if (selId && (s === selId || t === selId)) return 'rgba(147,197,253,0.90)'
-    if (active) return 'rgba(147,197,253,0.50)'
-    return 'rgba(96,165,250,0.18)'
-  }, [getId, getActiveSet])
-
-  const linkWidth = useCallback(link => {
-    const s = getId(link.source), t = getId(link.target)
-    const active = getActiveSet()
-    const selId = selNodeRef.current
-    const hasSelection = !!(selId || selFeatRef.current || scenarioRef.current)
-    if (hasSelection && active && !(active.has(s) && active.has(t))) return 0.0
-    if (scenarioRef.current) return 2.0
-    if (selId && (s === selId || t === selId)) return 3.2
-    if (active) return 1.6
-    return 0.8
-  }, [getId, getActiveSet])
-
-  const linkParticles = useCallback(link => {
-    const s = getId(link.source), t = getId(link.target)
-    const active = getActiveSet()
-    const selId = selNodeRef.current
-    const hasSelection = !!(selId || selFeatRef.current || scenarioRef.current)
-    if (hasSelection && active && !(active.has(s) && active.has(t))) return 0
-    if (scenarioRef.current) return 5    // flowing light along scenario path
-    if (selId && (s === selId || t === selId)) return 10
-    if (active) return 6
-    return 2
-  }, [getId, getActiveSet])
-
-  const linkParticleSpeed = useCallback(link => {
-    const s = getId(link.source), t = getId(link.target)
-    const selId = selNodeRef.current
-    if (scenarioRef.current) return 0.007
-    if (selId && (s === selId || t === selId)) return 0.008
-    return 0.005
-  }, [getId])
-
-  const linkArrowColor = useCallback(link => {
-    const s = getId(link.source), t = getId(link.target)
-    const active = getActiveSet()
-    const selId = selNodeRef.current
-    const hasSelection = !!(selId || selFeatRef.current || scenarioRef.current)
-    if (hasSelection && active && !(active.has(s) && active.has(t))) return 'rgba(0,0,0,0)'
-    if (scenarioRef.current) return 'rgba(168,120,255,0.8)'
-    if (selId && (s === selId || t === selId)) return 'rgba(147,197,253,0.9)'
-    if (active) return 'rgba(147,197,253,0.6)'
-    return 'rgba(96,165,250,0.35)'
-  }, [getId, getActiveSet])
-
-  // ── Select handlers ───────────────────────────────────────────
   const scrollToGraph = useCallback(() => {
     setTimeout(() => {
       const container = canvasAreaRef.current?.closest('.integrity-page')
@@ -723,36 +502,59 @@ export default function IntegrityGraph({
     }, 60)
   }, [])
 
+  // ── Select handlers ───────────────────────────────────────────
   const handleSelectNode = useCallback(name => {
-    const next = name === selNodeRef.current ? null : name
-    setSelectedNodeId(next); setSelectedFeatureId(null)
-    if (next) {
+    const next = name === selectedNodeId ? null : name
+    setSelectedNodeId(next)
+    setSelectedFeatureId(null)
+    setSelectedScenarioId(null)
+    if (next && graphRef.current) {
       const node = graphData.nodes.find(n => n.id === next)
-      const nx = node?.fx ?? node?.x, ny = node?.fy ?? node?.y, nz = node?.fz ?? node?.z
-      if (nx != null) flyTo(nx + 68, ny + 34, nz + 68, { x:nx, y:ny, z:nz }, 1000)
+      const nx = node?.fx ?? node?.x ?? 0
+      const ny = node?.fy ?? node?.y ?? 0
+      const nz = node?.fz ?? node?.z ?? 0
+      flyTo(nx/2 + 160, ny/2 + 80, nz/2 + 160, { x:0, y:0, z:0 }, 1000)
       scrollToGraph()
     }
     onNodeSelect?.(next)
-  }, [graphData.nodes, flyTo, onNodeSelect, scrollToGraph])
+  }, [selectedNodeId, graphData.nodes, flyTo, onNodeSelect, scrollToGraph])
 
   const handleSelectFeature = useCallback(name => {
-    const next = name === selFeatRef.current ? null : name
-    setSelectedFeatureId(next); setSelectedNodeId(null)
+    const next = name === selectedFeatureId ? null : name
+    setSelectedFeatureId(next)
+    setSelectedNodeId(null)
+    setSelectedScenarioId(null)
     if (next) {
-      // Feature 선택: 전체 그래프가 보이는 Overview 위치로 이동
-      // (개별 Feature 멤버가 여러 cluster에 흩어져 있으므로 Overview가 더 유효)
       flyTo(0, 120, 280, { x:0, y:0, z:0 }, 1200)
       scrollToGraph()
     }
     onFeatureSelect?.(next)
-  }, [featureList, knownSet, graphData.nodes, flyTo, onFeatureSelect, scrollToGraph])
+  }, [selectedFeatureId, flyTo, onFeatureSelect, scrollToGraph])
+
+  const handleSelectScenario = useCallback(id => {
+    const next = id === selectedScenarioId ? null : id
+    setSelectedScenarioId(next)
+    setSelectedNodeId(null)
+    setSelectedFeatureId(null)
+    if (next) {
+      flyTo(0, 120, 280, { x:0, y:0, z:0 }, 1200)
+      scrollToGraph()
+    }
+    onScenarioSelect?.(next)
+  }, [selectedScenarioId, flyTo, onScenarioSelect, scrollToGraph])
 
   const handleClearSelection = useCallback(() => {
-    setSelectedNodeId(null); setSelectedFeatureId(null)
+    setSelectedNodeId(null); setSelectedFeatureId(null); setSelectedScenarioId(null)
     onNodeSelect?.(null); onFeatureSelect?.(null)
   }, [onNodeSelect, onFeatureSelect])
 
-  // Filtered list for side panel
+  // ── Hover ─────────────────────────────────────────────────────
+  const handleNodeHover = useCallback(node => {
+    setHoveredNode(node || null)
+    setHoveredVisible(!!node)
+  }, [])
+
+  // ── Filtered list for side panel ──────────────────────────────
   const filteredFns = useMemo(() => {
     let list = functionList
     if (filter === 'critical') list = list.filter(f => f.score < 60)
@@ -762,32 +564,223 @@ export default function IntegrityGraph({
     return list
   }, [functionList, filter, searchTerm])
 
+  // ── 고해상도 라벨 텍스처 생성 ────────────────────────────────
+  const makeLabelTexture = useCallback((node, isSel, isActive) => {
+    const PR   = 3          // pixel ratio (3배 = 고해상도)
+    const W    = 520, H = 80
+    const c    = document.createElement('canvas')
+    c.width    = W * PR; c.height = H * PR
+    const ctx  = c.getContext('2d')
+    ctx.scale(PR, PR)
+
+    const scoreCol = SCORE_COLOR(node.score)
+
+    // 배경 — 반투명 다크 패널
+    ctx.fillStyle = 'rgba(3,7,20,0.88)'
+    ctx.beginPath(); ctx.roundRect(0, 6, W, H - 8, 12); ctx.fill()
+
+    // 좌측 accent bar (무결성 점수 색)
+    const grad = ctx.createLinearGradient(0, 6, 0, H - 2)
+    grad.addColorStop(0, scoreCol)
+    grad.addColorStop(1, scoreCol + '88')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 6, 4, H - 8)
+
+    // feature color dot
+    ctx.fillStyle = node.featureColor
+    ctx.shadowColor = node.featureColor; ctx.shadowBlur = 8
+    ctx.beginPath(); ctx.arc(20, H/2 + 2, 5, 0, Math.PI*2); ctx.fill()
+    ctx.shadowBlur = 0
+
+    // 함수명 (메인 텍스트)
+    ctx.font = `bold ${isSel ? 22 : 19}px "SF Mono", "Fira Code", monospace`
+    ctx.fillStyle = isSel ? '#f1f5f9' : '#cbd5e1'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.shadowColor = scoreCol; ctx.shadowBlur = isSel ? 12 : 0
+    ctx.fillText(node.name, 34, H/2 + 1)
+    ctx.shadowBlur = 0
+
+    // 점수 뱃지 (우측)
+    const scoreText = `${node.score}`
+    ctx.font = 'bold 16px monospace'
+    ctx.fillStyle = scoreCol
+    ctx.textAlign = 'right'
+    ctx.shadowColor = scoreCol; ctx.shadowBlur = 6
+    ctx.fillText(scoreText, W - 12, H/2 + 2)
+    ctx.shadowBlur = 0
+
+    const tex = new THREE.CanvasTexture(c)
+    tex.anisotropy = 16   // 고품질 필터링
+    return tex
+  }, [])
+
+  // ── 완전 커스텀 노드 오브젝트 ────────────────────────────────
+  const nodeThreeObject = useCallback(node => {
+    const isActive = activeSet ? activeSet.has(node.id) : false
+    const isSel    = node.id === selectedNodeId
+    const isDim    = hasSelection && !isActive
+
+    const r        = Math.max(3.5, Math.min(12, 3.5 + node.calls * 0.28 + node.degree * 0.38))
+    const scoreCol = SCORE_COLOR(node.score)
+    const sc       = new THREE.Color(scoreCol)
+    const cc       = new THREE.Color(node.featureColor)
+    const group    = new THREE.Group()
+
+    // ─ Core sphere (고폴리곤 구형) ─────────────────────────
+    const coreMat = new THREE.MeshPhongMaterial({
+      color:            isDim ? new THREE.Color('#1e2533') : sc,
+      emissive:         isDim ? new THREE.Color('#0a0f1a') : sc,
+      emissiveIntensity: isDim ? 0.05 : (isSel ? 0.9 : isActive ? 0.6 : 0.45),
+      shininess:        120,
+      transparent:      isDim,
+      opacity:          isDim ? 0.22 : 0.97,
+    })
+    const core = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 48), coreMat)
+    group.add(core)
+
+    if (!isDim) {
+      // ─ 내부 glow shell (cluster color) ─────────────────
+      const innerGlow = new THREE.Mesh(
+        new THREE.SphereGeometry(r * 1.5, 20, 20),
+        new THREE.MeshBasicMaterial({
+          color: cc, transparent: true,
+          opacity: isSel ? 0.18 : isActive ? 0.10 : 0.06,
+          side: THREE.BackSide,
+        })
+      )
+      group.add(innerGlow)
+
+      // ─ 외부 score glow ──────────────────────────────────
+      const outerGlow = new THREE.Mesh(
+        new THREE.SphereGeometry(r * 2.6, 16, 16),
+        new THREE.MeshBasicMaterial({
+          color: sc, transparent: true,
+          opacity: isSel ? 0.12 : isActive ? 0.06 : 0.025,
+          side: THREE.BackSide,
+        })
+      )
+      group.add(outerGlow)
+
+      // ─ 홀로그램 링 1 (수평, score color) ─────────────────
+      const ring1 = new THREE.Mesh(
+        new THREE.TorusGeometry(r * 1.65, 0.35, 8, 64),
+        new THREE.MeshBasicMaterial({
+          color: sc, transparent: true,
+          opacity: isSel ? 0.80 : isActive ? 0.45 : 0.22,
+        })
+      )
+      ring1.rotation.x = Math.PI / 2
+      group.add(ring1)
+
+      // ─ 홀로그램 링 2 (기울어진, cluster color) ────────────
+      const ring2 = new THREE.Mesh(
+        new THREE.TorusGeometry(r * 2.1, 0.22, 8, 64),
+        new THREE.MeshBasicMaterial({
+          color: cc, transparent: true,
+          opacity: isSel ? 0.55 : isActive ? 0.28 : 0.10,
+        })
+      )
+      ring2.rotation.z = Math.PI / 5
+      ring2.rotation.x = Math.PI / 6
+      group.add(ring2)
+
+      // ─ 선택 노드 전용: 스캔 링 ──────────────────────────
+      if (isSel) {
+        const scanRing = new THREE.Mesh(
+          new THREE.TorusGeometry(r * 3.2, 0.18, 8, 72),
+          new THREE.MeshBasicMaterial({ color: sc, transparent: true, opacity: 0.40 })
+        )
+        scanRing.rotation.x = Math.PI / 2
+        group.add(scanRing)
+
+        const scanRing2 = new THREE.Mesh(
+          new THREE.TorusGeometry(r * 3.8, 0.12, 8, 72),
+          new THREE.MeshBasicMaterial({ color: cc, transparent: true, opacity: 0.25 })
+        )
+        scanRing2.rotation.z = -Math.PI / 4
+        group.add(scanRing2)
+      }
+    }
+
+    // ─ 고해상도 라벨 (선택 or 활성 노드만) ──────────────────
+    if (!isDim) {
+      const tex    = makeLabelTexture(node, isSel, isActive)
+      const lw     = (isSel ? 44 : 36), lh = lw * (80/520)
+      const label  = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: isSel ? 1.0 : 0.82, depthTest: false })
+      )
+      label.scale.set(lw, lh, 1)
+      label.position.set(r + lw * 0.5 + 1.5, r * 0.25, 0)
+      group.add(label)
+    }
+
+    return group
+  }, [activeSet, selectedNodeId, hasSelection, makeLabelTexture])
+
+  // nodeThreeObjectExtend=false → 기본 구체 완전 교체
+  const nodeThreeObjectExtend = false
+
+  // ── 링 회전 애니메이션 (onRenderFramePre) ─────────────────────
+  const pulseRef = useRef(0)
+  const handleRenderFrame = useCallback(() => {
+    if (!graphRef.current) return
+    pulseRef.current += 0.018   // 천천히 증가
+
+    const scene = graphRef.current.scene?.()
+    if (!scene) return
+
+    scene.traverse(obj => {
+      if (!obj.isMesh || !obj.geometry?.type?.startsWith('Torus')) return
+      const parent = obj.parent   // THREE.Group (노드)
+      if (!parent) return
+
+      // 상위 그룹의 자식 중 SphereGeometry가 있으면 회전 적용
+      const r1Idx = parent.children.findIndex(c => c.geometry?.type === 'TorusGeometry')
+      const idx   = parent.children.indexOf(obj)
+      const speed = 0.004 + idx * 0.003   // 링마다 다른 속도
+
+      // ring1: y축 회전, ring2: z축 회전 (홀로그램 느낌)
+      if (idx % 2 === 0) obj.rotation.y += speed
+      else               obj.rotation.z += speed * 0.7
+    })
+  }, [])
+
   return (
     <div className="graph-workspace" onMouseMove={e => setMousePos({ x:e.clientX, y:e.clientY })}>
-
-      {/* ── Canvas ─────────────────────────────────── */}
-      <div ref={canvasAreaRef} className="graph-canvas-area">
+      <div
+        ref={canvasAreaRef}
+        className="graph-canvas-area"
+        onMouseLeave={() => { setHoveredNode(null); setHoveredVisible(false) }}
+      >
         <ForceGraph3D
           ref={graphRef}
           graphData={graphData}
           width={canvasWidth}
           height={450}
           backgroundColor="#050b18"
+          // Physics
           d3AlphaDecay={0.05}
           d3VelocityDecay={0.60}
-          cooldownTicks={180}
+          cooldownTicks={200}
+          // Node
+          nodeColor={getNodeColor}
+          nodeVal={getNodeVal}
+          nodeOpacity={0.9}
           nodeThreeObject={nodeThreeObject}
-          nodeThreeObjectExtend={false}
+          nodeThreeObjectExtend={nodeThreeObjectExtend}
           nodeLabel={null}
-          linkColor={linkColor}
-          linkWidth={linkWidth}
-          linkDirectionalParticles={linkParticles}
-          linkDirectionalParticleSpeed={linkParticleSpeed}
-          linkDirectionalParticleColor={() => '#93c5fd'}
-          linkDirectionalParticleWidth={2.0}
+          // Link
+          linkColor={getLinkColor}
+          linkWidth={getLinkWidth}
+          linkDirectionalParticles={getLinkParticles}
+          linkDirectionalParticleSpeed={getLinkParticleSpeed}
+          linkDirectionalParticleColor={getLinkParticleColor}
+          linkDirectionalParticleWidth={1.8}
           linkDirectionalArrowLength={6}
           linkDirectionalArrowRelPos={0.85}
-          linkDirectionalArrowColor={linkArrowColor}
+          linkDirectionalArrowColor={getLinkArrowColor}
+          // Callbacks
           onEngineStop={handleEngineStop}
           onRenderFramePre={handleRenderFrame}
           onNodeClick={node => handleSelectNode(node.id)}
@@ -795,11 +788,10 @@ export default function IntegrityGraph({
             const nx = node.fx??node.x??0, ny = node.fy??node.y??0, nz = node.fz??node.z??0
             flyTo(nx+32, ny+16, nz+32, { x:nx, y:ny, z:nz }, 600)
           }}
-          onNodeHover={n => setHoveredNode(n||null)}
+          onNodeHover={handleNodeHover}
           enableNodeDrag={false}
         />
 
-        {/* Focus bar — 상단 오버레이 */}
         <FocusBar
           selectedNodeId={selectedNodeId}
           selectedFeatureId={selectedFeatureId}
@@ -810,7 +802,7 @@ export default function IntegrityGraph({
         />
 
         <Legend />
-        <Tooltip node={hoveredNode} pos={mousePos} />
+        <Tooltip node={hoveredNode} pos={mousePos} visible={hoveredVisible} />
 
         {!graphReady && (
           <div className="graph-loading">
@@ -818,14 +810,13 @@ export default function IntegrityGraph({
             <span>신경망 구조 분석 중...</span>
           </div>
         )}
-        {graphReady && !selectedNodeId && !selectedFeatureId && (
+        {graphReady && !hasSelection && (
           <div className="graph-hint">
-            드래그: 회전 · 스크롤: 줌 · 우측 리스트에서 함수/기능 선택
+            드래그: 회전 · 스크롤: 줌 · 우측 리스트에서 함수/기능/시나리오 선택
           </div>
         )}
       </div>
 
-      {/* ── Side Panel ─────────────────────────────── */}
       <SidePanel
         functionList={filteredFns}
         fullFunctionList={functionList}
@@ -836,26 +827,7 @@ export default function IntegrityGraph({
         selectedScenarioId={selectedScenarioId}
         onSelectNode={handleSelectNode}
         onSelectFeature={handleSelectFeature}
-        onSelectScenario={name => {
-          setSelectedScenarioId(name)
-          // scenario 선택 시 해당 feature들 하이라이트
-          const sc = scenarioList?.find(s => s.id === name)
-          if (sc) {
-            scenarioRef.current = (() => {
-              const all = new Set()
-              sc.featureFlow.forEach(featName => {
-                const feat = featureList.find(f => f.name === featName)
-                if (feat) extractFuncNamesOrdered(feat.flow, knownSet).forEach(id => all.add(id))
-              })
-              return all
-            })()
-            setSelectedNodeId(null); setSelectedFeatureId(null)
-            if (graphRef.current && graphReady) {
-              graphRef.current.cameraPosition({ x:0, y:130, z:300 }, { x:0, y:0, z:0 }, 1200)
-            }
-          }
-          onScenarioSelect?.(name)
-        }}
+        onSelectScenario={handleSelectScenario}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         filter={filter}

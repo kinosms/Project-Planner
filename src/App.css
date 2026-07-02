@@ -3682,3 +3682,462 @@ h1 {
 .integrity-graph-header {
   gap: 12px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Scenario 2.0 — 2-column layout
+   ═══════════════════════════════════════════════════════════════ */
+
+.sc2-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  align-items: start;
+  min-height: 500px;
+}
+
+/* ─── 왼쪽: 시나리오 목록 ─────────────────────────────────────── */
+.sc2-list {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+}
+
+.sc2-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+.sc2-list-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-family: monospace;
+}
+
+.sc2-avg {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.sc2-items { display: flex; flex-direction: column; }
+
+.sc2-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.14s;
+}
+.sc2-item:hover { background: #f0f9ff; }
+.sc2-item-active { background: #eff6ff !important; border-left: 3px solid #3b82f6; }
+.sc2-item-high { border-left: 3px solid #ef4444; }
+.sc2-item-mid  { border-left: 3px solid #eab308; }
+
+.sc2-item-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sc2-id {
+  font-size: 9px;
+  background: rgba(30,58,95,0.1);
+  color: #334155;
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  font-family: monospace;
+}
+
+.sc2-risk {
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.sc2-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc2-score {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+.sc2-item-meta {
+  margin-top: 4px;
+}
+.sc2-meta-row {
+  font-size: 10px;
+  color: #64748b;
+  font-family: monospace;
+}
+
+/* ─── 오른쪽: 상세 ────────────────────────────────────────────── */
+.sc2-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sc2-empty {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 60px 20px;
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
+  border-radius: 10px;
+}
+
+/* 시나리오 개요 */
+.sc2-overview {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sc2-ov-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.sc2-ov-title code { font-size: 10px; color: #64748b; background: #f1f5f9; border-radius: 3px; padding: 1px 6px; }
+.sc2-ov-title strong { font-size: 15px; color: #1e293b; }
+
+.sc2-ov-row { display: flex; gap: 8px; font-size: 12px; }
+.sc2-ov-label { font-size: 10px; font-weight: 700; color: #94a3b8; font-family: monospace; letter-spacing: 0.06em; min-width: 36px; }
+
+.sc2-ov-screens {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.sc2-screen-badge {
+  font-size: 11px;
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-family: monospace;
+  font-weight: 600;
+}
+.sc2-start { background: rgba(59,130,246,0.1); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.25); }
+.sc2-end   { background: rgba(34,197,94,0.1);  color: #15803d; border: 1px solid rgba(34,197,94,0.25); }
+
+.sc2-screen-arrow { color: #94a3b8; font-size: 13px; }
+
+/* 경로 컨트롤 */
+.sc2-path-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sc2-path-btn {
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.14s;
+  color: #475569;
+}
+.sc2-path-btn.active {
+  background: rgba(59,130,246,0.1);
+  border-color: rgba(59,130,246,0.35);
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.sc2-anim-btn {
+  margin-left: auto;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.14s;
+  color: #475569;
+}
+.sc2-anim-btn.running {
+  background: rgba(59,130,246,0.08);
+  border-color: rgba(59,130,246,0.3);
+  color: #2563eb;
+  animation: anim-pulse 2s ease-in-out infinite;
+}
+@keyframes anim-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.15); }
+  50%      { box-shadow: 0 0 0 4px rgba(59,130,246,0.08); }
+}
+
+/* Feature Flow 타이틀 */
+.sc2-flow-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  font-family: monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.sc2-flow-count { font-weight: 400; color: #94a3b8; }
+
+/* Feature Flow 목록 */
+.sc2-feature-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sc2-feat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sc2-feat-arrow {
+  font-size: 18px;
+  color: #94a3b8;
+  padding-left: 14px;
+  line-height: 1.2;
+  margin: 2px 0;
+}
+
+.sc2-feat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #fff;
+  transition: all 0.14s;
+}
+.sc2-feat-head:hover { background: #f0f9ff; border-color: rgba(59,130,246,0.3); }
+
+.sc2-feat-item.sc2-feat-current .sc2-feat-head {
+  background: rgba(59,130,246,0.08);
+  border-color: rgba(59,130,246,0.45);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.12), 0 0 12px rgba(59,130,246,0.15);
+}
+
+.sc2-feat-item.sc2-feat-passed .sc2-feat-head {
+  background: rgba(34,197,94,0.04);
+  border-color: rgba(34,197,94,0.3);
+}
+
+.sc2-feat-item.sc2-feat-selected .sc2-feat-head {
+  background: rgba(59,130,246,0.1);
+  border-color: rgba(59,130,246,0.4);
+}
+
+.sc2-feat-item.sc2-feat-danger .sc2-feat-head {
+  border-color: #fca5a5;
+}
+
+.sc2-feat-arrow-icon { font-size: 11px; color: #94a3b8; flex-shrink: 0; }
+.sc2-feat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sc2-feat-name { font-size: 12px; font-weight: 600; color: #1e293b; flex: 1; }
+.sc2-feat-fn-count { font-size: 10px; color: #94a3b8; font-family: monospace; }
+.sc2-feat-score { font-size: 11px; font-weight: 700; font-family: monospace; }
+
+.sc2-danger-badge {
+  font-size: 9px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-weight: 700;
+}
+
+.sc2-current-badge {
+  font-size: 9px;
+  background: rgba(59,130,246,0.1);
+  color: #2563eb;
+  border: 1px solid rgba(59,130,246,0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-weight: 700;
+  animation: badge-blink 1.2s ease-in-out infinite;
+}
+@keyframes badge-blink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+/* 함수 목록 (accordion) */
+.sc2-fn-list {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0 2px 24px;
+  border-left: 2px solid #e5e7eb;
+  padding-left: 12px;
+  gap: 2px;
+}
+
+.sc2-fn-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.12s;
+  border: 1px solid transparent;
+}
+.sc2-fn-item:hover { background: #f0f9ff; border-color: rgba(59,130,246,0.2); }
+
+.sc2-fn-item.sc2-fn-current {
+  background: rgba(59,130,246,0.1);
+  border-color: rgba(59,130,246,0.4);
+  animation: fn-pulse 0.9s ease-in-out infinite;
+}
+@keyframes fn-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.15); }
+  50%      { box-shadow: 0 0 0 4px rgba(59,130,246,0.08); }
+}
+
+.sc2-fn-item.sc2-fn-passed {
+  background: rgba(34,197,94,0.04);
+  border-color: rgba(34,197,94,0.2);
+  opacity: 0.85;
+}
+
+.sc2-fn-status {
+  font-size: 12px;
+  color: #94a3b8;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+.sc2-fn-current .sc2-fn-status { color: #2563eb; }
+.sc2-fn-passed  .sc2-fn-status { color: #16a34a; }
+
+.sc2-fn-name {
+  font-size: 11px;
+  font-family: monospace;
+  color: #374151;
+  flex-shrink: 0;
+  min-width: 140px;
+}
+
+.sc2-fn-desc {
+  font-size: 11px;
+  color: #64748b;
+  flex: 1;
+  line-height: 1.4;
+}
+
+.sc2-fn-score {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+.sc2-danger-section { margin-top: 4px; }
+
+/* ─── Scenario Step Flow ─────────────────────────────────────── */
+.sc2-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.sc2-step-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  transition: background 0.14s;
+  color: #64748b;
+}
+
+.sc2-step-row.sc2-step-current {
+  background: rgba(59,130,246,0.1);
+  color: #1d4ed8;
+  font-weight: 600;
+  animation: fn-pulse 0.9s ease-in-out infinite;
+}
+
+.sc2-step-row.sc2-step-past {
+  color: #16a34a;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.sc2-step-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: monospace;
+}
+
+.sc2-step-current .sc2-step-num {
+  background: rgba(59,130,246,0.2);
+  color: #2563eb;
+}
+
+.sc2-step-past .sc2-step-num {
+  background: rgba(34,197,94,0.15);
+  color: #16a34a;
+}
+
+.sc2-step-label { flex: 1; line-height: 1.4; }
+
+.sc2-step-dot {
+  font-size: 12px;
+  color: #2563eb;
+  animation: badge-blink 0.9s ease-in-out infinite;
+}
+
+.sc2-step-check {
+  font-size: 11px;
+  color: #16a34a;
+}

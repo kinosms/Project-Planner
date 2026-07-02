@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import IntegrityGraph from './IntegrityGraph'
 
 export default function IntegrityCheck({ projects }) {
@@ -1094,12 +1094,38 @@ export default function IntegrityCheck({ projects }) {
   const warningFeatures = featureList.filter(f => f.score >= 60 && f.score < 80)
 
   // ─── 4. Scenario 데이터 ─────────────────────────────────────────
+  // ─── featureList 함수 매핑 헬퍼 ─────────────────────────────────
+  // featureList의 flow 배열에서 실제 함수명을 추출하여 functions[] 빌드
+  const buildFeatureFunctions = (featureName) => {
+    const feat = featureList.find(f => f.name === featureName)
+    if (!feat) return []
+    return feat.flow
+      .filter(step => functionList.some(fn => step.includes(fn.name)))
+      .map(step => {
+        const fn = functionList.find(f => step.includes(f.name))
+        return fn ? { id: fn.name, name: `${fn.name}()`, description: fn.role, score: fn.score } : null
+      })
+      .filter(Boolean)
+      .filter((v, i, a) => a.findIndex(x => x.id === v.id) === i) // dedup
+  }
+
+  // 공통 앱 진입 단계 (모든 시나리오 공유)
+  const APP_ENTRY_FEATURES = ['앱 초기화 및 DB 로드']
+  const PLANNER_ENTRY_FEATURES = ['앱 초기화 및 DB 로드']
+  const UNLOCK_FEATURES = ['잠금/편집 전환']
+
   const scenarioList = [
     {
-      id: 'S01', name: '앱 첫 실행 및 데이터 로드',
-      purpose: '앱을 최초 실행하여 Supabase DB에서 프로젝트/업무/일정 데이터를 로드하고 대시보드와 일일 브리핑을 확인한다.',
-      startScreen: '브라우저 진입', endScreen: 'Dashboard 화면',
+      id: 'S01', name: '대시보드 확인',
+      purpose: '앱을 처음 실행해 DB 데이터를 로드하고, 대시보드에서 오늘의 업무 브리핑을 확인한다.',
+      startScreen: '브라우저 주소 입력 (앱 최초 진입)', endScreen: 'Dashboard — 일일 브리핑 팝업 표시',
       featureFlow: ['앱 초기화 및 DB 로드', '일일 브리핑 팝업'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'Supabase에서 프로젝트/업무/일정 데이터 로드',
+        '대시보드 화면 렌더링',
+        '일일 브리핑 팝업 표시',
+      ],
       successCondition: '대시보드에 프로젝트 데이터가 표시되고 일일 브리핑 팝업이 노출됨',
       failureCondition: 'Supabase 네트워크 에러 → 빈 화면, 사용자 에러 피드백 없음',
       exceptionHandling: 'console.log만 출력, UI 알림 없음',
@@ -1109,23 +1135,41 @@ export default function IntegrityCheck({ projects }) {
       opinion: '로드 실패 시 사용자 피드백 전무. showToast 연결 + 재시도 버튼 추가 필요.',
     },
     {
-      id: 'S02', name: '프로젝트 생성 및 업무 입력',
-      purpose: '새 프로젝트를 만들고 업무를 추가한 뒤 담당자·문서 링크 등 정보를 입력한다.',
-      startScreen: '플래너 화면 (잠금 해제)', endScreen: '플래너 화면 (업무 행 추가)',
-      featureFlow: ['잠금/편집 전환', '프로젝트·업무 생성', '업무 정보 편집', '문서 URL 관리'],
+      id: 'S02', name: '프로젝트·업무 생성',
+      purpose: '앱을 실행해 플래너로 이동한 뒤, 잠금을 해제하고 새 프로젝트와 업무를 입력한다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '플래너 — 새 프로젝트·업무 행 추가 완료',
+      featureFlow: ['앱 초기화 및 DB 로드', '잠금/편집 전환', '프로젝트·업무 생성', '업무 정보 편집', '문서 URL 관리'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료 → 대시보드 표시',
+        '"플래너" 탭 클릭',
+        '"잠금상태" 버튼 클릭 → LDAP 입력 → "편집중" 전환',
+        '"+ 프로젝트" 버튼 클릭 → 프로젝트명 입력',
+        '"+" 버튼 클릭 → 업무명·담당자 입력',
+        '링크 버튼 클릭 → 문서 URL 입력 → 저장',
+      ],
       successCondition: '새 프로젝트 행 + 업무 행 생성 + localStorage 저장',
       failureCondition: '잠금 비밀번호 하드코딩 노출 시 권한 우회 가능',
       exceptionHandling: '잠금 상태 버튼 disabled. localStorage 오류 시 처리 없음',
       dangerFunctions: ['toggleScheduleLock', 'addProject', 'addTaskToProject'],
       dangerFeatures: ['잠금/편집 전환'],
-      complexity: 4, riskLevel: '높음', score: 68,
+      complexity: 5, riskLevel: '높음', score: 68,
       opinion: '비밀번호 하드코딩 즉시 수정 필요. DB 저장 유도 UX 안내 부재.',
     },
     {
-      id: 'S03', name: '업무 일정 입력 및 수정',
-      purpose: '플래너 타임라인에서 날짜 셀을 드래그하여 업무 기간을 설정하거나 변경한다.',
-      startScreen: '플래너 화면 (잠금 해제)', endScreen: '플래너 화면 (날짜 셀 표시)',
-      featureFlow: ['잠금/편집 전환', '일정 페인팅 (날짜 드래그)', '적색 날짜 토글', '셀 메모 입력/수정/삭제'],
+      id: 'S03', name: '업무 일정 입력',
+      purpose: '앱을 실행해 플래너로 이동한 뒤, 잠금 해제 후 날짜 셀을 드래그하여 업무 일정을 설정한다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '플래너 — 날짜 셀 파란색으로 표시',
+      featureFlow: ['앱 초기화 및 DB 로드', '잠금/편집 전환', '일정 페인팅 (날짜 드래그)', '적색 날짜 토글', '셀 메모 입력/수정/삭제'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료 → 대시보드 표시',
+        '"플래너" 탭 클릭',
+        '"잠금상태" 버튼 클릭 → LDAP 입력 → "편집중" 전환',
+        '타임라인 날짜 셀 클릭/드래그 → 파란 셀 표시',
+        '(선택) 날짜 셀 더블클릭 → 적색 위험 날짜 표시',
+        '(선택) Shift+클릭 → 날짜 셀 메모 입력',
+      ],
       successCondition: '드래그한 날짜 셀이 파란 셀로 표시되고 저장됨',
       failureCondition: '창 밖 마우스 이탈 시 isPainting stuck',
       exceptionHandling: '잠금 상태 early return. Shift+클릭 메모 잠금 중 가능한 버그 존재',
@@ -1136,9 +1180,20 @@ export default function IntegrityCheck({ projects }) {
     },
     {
       id: 'S04', name: 'DB 저장 및 이력 확인',
-      purpose: '편집한 내용을 Supabase에 저장하고 변경 이력을 히스토리 탭에서 확인한다.',
-      startScreen: '플래너 화면', endScreen: '히스토리 화면',
-      featureFlow: ['DB 전체 저장', '히스토리 조회 및 업무 이동', '로컬 히스토리 (Undo/Redo)'],
+      purpose: '앱 실행 후 데이터를 편집하고 DB에 저장한 뒤, 히스토리 탭에서 변경 이력을 확인한다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '히스토리 탭 — 변경 이력 목록 확인',
+      featureFlow: ['앱 초기화 및 DB 로드', '잠금/편집 전환', 'DB 전체 저장', '히스토리 조회 및 업무 이동', '로컬 히스토리 (Undo/Redo)'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료 → 대시보드 표시',
+        '"플래너" 탭 클릭',
+        '"잠금상태" 버튼 클릭 → LDAP 입력 → "편집중" 전환',
+        '데이터 편집 (업무 추가/수정/일정 변경 등)',
+        '"저장" 버튼 클릭 → 확인 팝업 → DB 저장 실행',
+        '"히스토리" 탭 클릭 → 변경 이력 목록 확인',
+        '이력 항목 클릭 → 플래너 해당 업무로 이동',
+        '← / → 버튼으로 이전/다음 저장 상태 복원',
+      ],
       successCondition: 'toast "DB 저장 완료" + 히스토리 목록 갱신',
       failureCondition: 'DELETE 후 INSERT 에러 → 데이터 일부 소실 (트랜잭션 없음)',
       exceptionHandling: 'catch → showToast("DB 저장 실패"). rollback 없음',
@@ -1148,36 +1203,60 @@ export default function IntegrityCheck({ projects }) {
       opinion: 'delete-then-insert 최고 위험. Supabase RPC/upsert 전환 필수.',
     },
     {
-      id: 'S05', name: '업무 상태 변경 및 완료 처리',
-      purpose: '업무 상태를 대기→진행→완료로 순환 변경하고 대시보드에서 진도율을 확인한다.',
-      startScreen: '플래너 화면', endScreen: '대시보드 화면',
-      featureFlow: ['업무 상태 변경', '앱 초기화 및 DB 로드'],
+      id: 'S05', name: '업무 상태 완료 처리',
+      purpose: '앱을 실행한 뒤 플래너에서 업무 상태를 완료로 변경하고 대시보드에서 진도율을 확인한다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '대시보드 — 완료율 갱신 확인',
+      featureFlow: ['앱 초기화 및 DB 로드', '잠금/편집 전환', '업무 상태 변경'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료 → 대시보드 표시',
+        '"플래너" 탭 클릭',
+        '"잠금상태" 버튼 클릭 → LDAP 입력 → "편집중" 전환',
+        '업무 상태 뱃지 클릭 → 대기 → 진행 → 완료 순환',
+        '"대시보드" 탭 클릭 → 완료율 갱신 확인',
+      ],
       successCondition: '상태 뱃지 변경 + 대시보드 완료율 즉시 반영',
       failureCondition: 'task.status(수동)와 getDisplayStatus(자동) 불일치 → 혼선',
       exceptionHandling: '잠금 상태 early return',
       dangerFunctions: ['cycleStatus', 'getDisplayStatus'],
       dangerFeatures: ['업무 상태 변경'],
-      complexity: 3, riskLevel: '낮음', score: 80,
+      complexity: 4, riskLevel: '낮음', score: 80,
       opinion: '수동 status와 자동 계산 getDisplayStatus 이원화 해소 권장.',
     },
     {
       id: 'S06', name: '업무 삭제',
-      purpose: '불필요한 업무를 삭제하고 마지막 업무 삭제 시 프로젝트도 함께 제거한다.',
-      startScreen: '플래너 화면', endScreen: '플래너 화면 (업무 행 제거)',
-      featureFlow: ['잠금/편집 전환', '업무 삭제'],
+      purpose: '앱을 실행해 플래너로 이동하고 잠금을 해제한 뒤, 불필요한 업무를 삭제한다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '플래너 — 업무 행 제거 완료',
+      featureFlow: ['앱 초기화 및 DB 로드', '잠금/편집 전환', '업무 삭제'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료 → 대시보드 표시',
+        '"플래너" 탭 클릭',
+        '"잠금상태" 버튼 클릭 → LDAP 입력 → "편집중" 전환',
+        '삭제할 업무 행의 "x" 버튼 클릭',
+        '"삭제할까?" confirm → 확인 클릭',
+        '업무 행 즉시 제거 (마지막 업무면 프로젝트도 제거)',
+      ],
       successCondition: '업무 행 즉시 제거. 마지막 업무면 프로젝트도 제거',
       failureCondition: '삭제 직후 undo 불가 (로컬 히스토리는 DB 저장 시점만)',
       exceptionHandling: 'confirm 취소 시 early return',
       dangerFunctions: ['deleteTask'],
       dangerFeatures: ['업무 삭제'],
-      complexity: 2, riskLevel: '낮음', score: 74,
+      complexity: 4, riskLevel: '낮음', score: 74,
       opinion: '마지막 업무 삭제 → 프로젝트 자동 삭제 경고 추가 필요.',
     },
     {
-      id: 'S07', name: '대시보드 KPI 확인 및 업무 이동',
-      purpose: '대시보드에서 전체 업무 진도·담당자 현황·종료임박 업무를 확인하고 플래너로 이동한다.',
-      startScreen: '대시보드 화면', endScreen: '플래너 화면 (업무 하이라이트)',
+      id: 'S07', name: '종료임박 업무 확인',
+      purpose: '앱을 실행하고 대시보드에서 종료 임박 업무를 확인한 뒤, 해당 업무 행으로 플래너에서 바로 이동한다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '플래너 — 해당 업무 행 하이라이트',
       featureFlow: ['앱 초기화 및 DB 로드', '일일 브리핑 팝업'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료',
+        '대시보드 표시 → 일일 브리핑 팝업 확인',
+        '"종료 예정 업무" 패널에서 D-Day 업무 확인',
+        '해당 업무 클릭 → 플래너로 자동 이동 + 하이라이트',
+      ],
       successCondition: '종료임박 업무 클릭 → 플래너 해당 업무 하이라이트',
       failureCondition: '업무명 변경 후 히스토리 이동 시 탐색 실패',
       exceptionHandling: '이동 불가 항목 clickable 미부여',
@@ -1188,22 +1267,41 @@ export default function IntegrityCheck({ projects }) {
     },
     {
       id: 'S08', name: '문서 링크 등록 및 열기',
-      purpose: '업무에 문서 URL을 등록하고 대시보드 또는 플래너에서 클릭해 문서를 연다.',
-      startScreen: '플래너 화면', endScreen: '새 탭 (문서 URL)',
-      featureFlow: ['업무 정보 편집', '문서 URL 관리'],
+      purpose: '앱을 실행해 플래너에서 업무에 문서 URL을 등록하고 새 탭에서 바로 열어 확인한다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '새 탭 — 문서 URL 열림',
+      featureFlow: ['앱 초기화 및 DB 로드', '잠금/편집 전환', '업무 정보 편집', '문서 URL 관리'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료 → 대시보드 표시',
+        '"플래너" 탭 클릭',
+        '"잠금상태" 버튼 클릭 → LDAP 입력 → "편집중" 전환',
+        '업무 행의 링크(🔗) 버튼 클릭',
+        'URL 모달에서 https:// 주소 입력',
+        '"저장" 클릭 → 링크 버튼 아이콘 변경',
+        '링크 버튼 → ↗ 클릭 → 새 탭에서 문서 열림',
+      ],
       successCondition: '저장 후 링크 버튼 아이콘 변경 + URL 새 탭 열림',
       failureCondition: 'URL 유효성 검증 없음. backdrop 클릭 시 변경 유실',
       exceptionHandling: '빈 URL 필터링(trim)',
       dangerFunctions: ['updateTaskFields'],
       dangerFeatures: ['문서 URL 관리'],
-      complexity: 3, riskLevel: '낮음', score: 80,
+      complexity: 4, riskLevel: '낮음', score: 80,
       opinion: 'URL 형식 검증 추가. backdrop 클릭 경고 필요.',
     },
     {
-      id: 'S09', name: '프로젝트/업무 순서 재배치',
-      purpose: 'Shift+드래그로 프로젝트 또는 업무의 표시 순서를 변경한다.',
-      startScreen: '플래너 화면 (잠금 해제)', endScreen: '플래너 화면 (순서 변경)',
-      featureFlow: ['잠금/편집 전환', '프로젝트/업무 순서 변경'],
+      id: 'S09', name: '업무·프로젝트 순서 변경',
+      purpose: '앱을 실행한 뒤 플래너에서 잠금을 해제하고 Shift+드래그로 업무·프로젝트 순서를 변경한다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '플래너 — 순서 변경 완료',
+      featureFlow: ['앱 초기화 및 DB 로드', '잠금/편집 전환', '프로젝트/업무 순서 변경'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료 → 대시보드 표시',
+        '"플래너" 탭 클릭',
+        '"잠금상태" 버튼 클릭 → LDAP 입력 → "편집중" 전환',
+        'Shift 키를 누른 채로 업무/프로젝트 행에 마우스다운',
+        '원하는 위치로 드래그 → 마우스업',
+        '순서 변경 완료 확인',
+      ],
       successCondition: '드래그 후 순서가 변경됨',
       failureCondition: '프로젝트 간 업무 이동 불가 (조용히 무시). 창 밖 이탈 시 stuck',
       exceptionHandling: 'fromId===toId early return',
@@ -1213,19 +1311,47 @@ export default function IntegrityCheck({ projects }) {
       opinion: '프로젝트 간 업무 이동 미지원 안내 추가.',
     },
     {
-      id: 'S10', name: 'Undo — 이전 저장 상태 복원',
-      purpose: '실수로 데이터를 변경했을 때 이전 DB 저장 시점 상태로 되돌린다.',
-      startScreen: '플래너 화면', endScreen: '플래너 화면 (이전 상태 복원)',
-      featureFlow: ['DB 전체 저장', '로컬 히스토리 (Undo/Redo)'],
+      id: 'S10', name: 'Undo — 이전 상태 복원',
+      purpose: '앱을 실행해 편집한 뒤 DB 저장을 완료하고, 실수 시 ← 버튼으로 이전 저장 상태로 되돌린다.',
+      startScreen: '브라우저 진입 (앱 최초 실행)', endScreen: '플래너 — 이전 저장 상태 복원 완료',
+      featureFlow: ['앱 초기화 및 DB 로드', '잠금/편집 전환', 'DB 전체 저장', '로컬 히스토리 (Undo/Redo)'],
+      stepLabels: [
+        '브라우저에서 앱 URL 진입',
+        'DB 데이터 로드 완료',
+        '"플래너" 탭 클릭',
+        '"잠금상태" 버튼 클릭 → LDAP 입력 → "편집중" 전환',
+        '데이터 편집',
+        '"저장" 버튼 클릭 → DB 저장 완료 (스냅샷 생성)',
+        '추가 편집 (실수 상황 가정)',
+        '"←" 버튼 클릭 → 이전 스냅샷으로 복원',
+        '"이전 상태로 이동했습니다" toast 표시',
+      ],
       successCondition: 'toast "이전 상태로 이동했습니다" + 플래너 복원',
       failureCondition: '스냅샷 3개 초과 시 오래된 이력 소멸. applySnapshot 후 loadedProjects 비갱신',
       exceptionHandling: 'nextIndex 범위 체크',
       dangerFunctions: ['moveLocalHistory', 'applySnapshot'],
       dangerFeatures: ['로컬 히스토리 (Undo/Redo)'],
-      complexity: 4, riskLevel: '중간', score: 74,
+      complexity: 5, riskLevel: '중간', score: 74,
       opinion: 'applySnapshot 후 loadedProjects 동기화 필요.',
     },
   ]
+
+  // ─── 시나리오에 featureFlowObj + paths 자동 생성 ─────────────────
+  const enrichedScenarios = useMemo(() => scenarioList.map(sc => ({
+    ...sc,
+    // 기능 객체 배열 (featureName → { featureId, featureName, functions[] })
+    featureFlowObj: sc.featureFlow.map((fname, fi) => ({
+      featureId: fname,
+      featureName: fname,
+      functions: buildFeatureFunctions(fname),
+    })),
+    // 기본 경로: featureFlow 전체 함수 순서대로
+    paths: sc.paths || [{
+      id: `${sc.id}-default`,
+      name: '기본 흐름 경로',
+      functionIds: sc.featureFlow.flatMap(fname => buildFeatureFunctions(fname).map(f => f.id)),
+    }],
+  })), [scenarioList, featureList, functionList]) // eslint-disable-line
 
   const avgScenarioScore = Math.round(scenarioList.reduce((s, sc) => s + sc.score, 0) / scenarioList.length)
   const highRiskScenarios = scenarioList.filter(sc => sc.riskLevel === '높음')
@@ -1242,6 +1368,10 @@ export default function IntegrityCheck({ projects }) {
   const [activeFeatureId, setActiveFeatureId] = useState(null)
   const [activeScenarioId, setActiveScenarioId] = useState(null)
   const [expandedScenario, setExpandedScenario] = useState(null)
+  // 시나리오 탭 상태
+  const [expandedFeatureIds, setExpandedFeatureIds] = useState(new Set())
+  const [currentPathIndex,    setCurrentPathIndex]   = useState(0)
+  const [currentEdgeStepIndex, setCurrentEdgeStepIndex] = useState(0)  // 엣지 단위 (그래프 전용)
 
   // ─── 6. ID 계산 헬퍼 ─────────────────────────────────────────────
   const fnIdOf   = name => { const i = functionList.findIndex(f => f.name === name); return i >= 0 ? `FN-${String(i+1).padStart(3,'0')}` : '' }
@@ -1299,6 +1429,36 @@ export default function IntegrityCheck({ projects }) {
   const handleGraphFeatureSelect = name => {
     setActiveFeatureId(name); setActiveNodeId(null)
   }
+
+  // ─── 엣지 단계 애니메이션 (그래프 전용, 하단 UI와 완전 분리) ──────
+  useEffect(() => {
+    if (!activeScenarioId) return
+    const sc = enrichedScenarios.find(s => s.id === activeScenarioId)
+    if (!sc) return
+    const path = sc.paths?.[currentPathIndex]
+    if (!path?.functionIds?.length) return
+
+    const lastEdgeIdx = path.functionIds.length - 2   // 엣지 수 = 노드 수 - 1
+    const isLast = currentEdgeStepIndex >= lastEdgeIdx
+    const delay  = isLast ? 1000 : 800
+
+    const timer = setTimeout(() => {
+      if (isLast) {
+        setCurrentEdgeStepIndex(0)
+        setCurrentPathIndex(prev => (prev + 1) % (sc.paths.length || 1))
+      } else {
+        setCurrentEdgeStepIndex(prev => prev + 1)
+      }
+    }, delay)
+
+    return () => clearTimeout(timer)
+  }, [activeScenarioId, currentPathIndex, currentEdgeStepIndex, enrichedScenarios])
+
+  // 시나리오 변경 시 엣지 애니메이션 리셋
+  useEffect(() => {
+    setCurrentPathIndex(0); setCurrentEdgeStepIndex(0)
+    setExpandedFeatureIds(new Set())
+  }, [activeScenarioId])
 
   // ─── Breadcrumb 계산 ─────────────────────────────────────────────
   const breadcrumb = (() => {
@@ -1362,7 +1522,14 @@ export default function IntegrityCheck({ projects }) {
             {graphOpen ? '▲' : '▼'}
           </button>
         </div>
-        {graphOpen && (
+        {graphOpen && (() => {
+          // 엣지 애니메이션: active source → target 두 값만 전달
+          const animSc   = enrichedScenarios.find(s => s.id === activeScenarioId)
+          const animPath = animSc?.paths?.[currentPathIndex]
+          const animSrc  = animPath?.functionIds?.[currentEdgeStepIndex] ?? null
+          const animTgt  = animPath?.functionIds?.[currentEdgeStepIndex + 1] ?? null
+
+          return (
           <IntegrityGraph
             functionList={functionList}
             featureList={featureList}
@@ -1372,8 +1539,11 @@ export default function IntegrityCheck({ projects }) {
             highlightScenarioFeatures={highlightScenario}
             onNodeSelect={handleGraphNodeSelect}
             onFeatureSelect={handleGraphFeatureSelect}
+            animSourceFnId={animSrc}
+            animTargetFnId={animTgt}
           />
-        )}
+          )
+        })()}
       </div>
 
       {/* ─── Breadcrumb ────────────────────────────────────────── */}
@@ -1678,159 +1848,195 @@ export default function IntegrityCheck({ projects }) {
         </div>
       )}
 
-      {tab === 'scenario' && (
-        <div className="integrity-section">
-          {/* 상단 집계 */}
-          <div className="integrity-score-header">
-            <div className="integrity-score-box">
-              <span>시나리오 수</span>
-              <strong>{scenarioList.length}개</strong>
-            </div>
-            <div className="integrity-score-box">
-              <span>평균 무결성 점수</span>
-              <strong className={avgScenarioScore >= 80 ? 'score-high' : avgScenarioScore >= 60 ? 'score-mid' : 'score-low'}>{avgScenarioScore}점</strong>
-            </div>
-            <div className="integrity-score-box">
-              <span>고위험 시나리오</span>
-              <strong className="score-low">{highRiskScenarios.length}개</strong>
-            </div>
-            <div className="integrity-score-box">
-              <span>중위험 시나리오</span>
-              <strong className="score-mid">{midRiskScenarios.length}개</strong>
-            </div>
-          </div>
+      {tab === 'scenario' && (() => {
+        // 하단 UI는 완전 정적 — step 상태와 연결 안 함
+        const activeSc  = enrichedScenarios.find(s => s.id === activeScenarioId)
 
-          {/* 시나리오 카드 목록 */}
-          <div className="scenario-list">
-            {scenarioList.map(sc => {
-              const isExpanded = expandedScenario === sc.id
-              const isActive   = activeScenarioId === sc.id
-              return (
-                <div
-                  key={sc.id}
-                  className={['scenario-card',
-                    sc.riskLevel === '높음' ? 'scenario-high' : sc.riskLevel === '중간' ? 'scenario-mid' : '',
-                    isActive ? 'scenario-active' : '',
-                  ].join(' ')}
-                >
-                  {/* 헤더 행 */}
-                  <div
-                    className="scenario-card-head"
+        return (
+        <div className="integrity-section sc2-layout">
+
+          {/* ─── 왼쪽: 시나리오 목록 ──────────────────── */}
+          <div className="sc2-list">
+            <div className="sc2-list-header">
+              <span className="sc2-list-title">SCENARIOS <span className="gsp-count">{scenarioList.length}</span></span>
+              <span className={['sc2-avg', avgScenarioScore>=80?'score-high':avgScenarioScore>=60?'score-mid':'score-low'].join(' ')}>
+                AVG {avgScenarioScore}
+              </span>
+            </div>
+
+            <div className="sc2-items">
+              {enrichedScenarios.map(sc => {
+                const isActive = activeScenarioId === sc.id
+                return (
+                  <div key={sc.id}
+                    className={['sc2-item', isActive?'sc2-item-active':'',
+                      sc.riskLevel==='높음'?'sc2-item-high':sc.riskLevel==='중간'?'sc2-item-mid':''].join(' ')}
                     onClick={() => {
-                      const next = isExpanded ? null : sc.id
-                      setExpandedScenario(next)
+                      const next = isActive ? null : sc.id
                       setActiveScenarioId(next)
+                      setExpandedScenario(next)
+                      setPathAnimRunning(!!next)
                       if (next) {
-                        // 그래프 시나리오 하이라이트: 소속 Feature들 모두 강조
                         setHighlightScenario(sc.featureFlow)
-                        setHighlightNode(null)
-                        setHighlightFeature(null)
+                        setHighlightNode(null); setHighlightFeature(null)
+                        setActiveNodeId(null); setActiveFeatureId(null)
                         setGraphOpen(true)
+                        document.querySelector('.integrity-page')?.scrollTo({ top:0, behavior:'smooth' })
                       } else {
                         setHighlightScenario(null)
                       }
                     }}
                   >
-                    <span className="scenario-id">{sc.id}</span>
-                    <span className={['scenario-risk-badge',
-                      sc.riskLevel === '높음' ? 'risk-high' : sc.riskLevel === '중간' ? 'risk-mid' : 'risk-low',
-                    ].join(' ')}>{sc.riskLevel}</span>
-                    <span className="scenario-name">{sc.name}</span>
-                    <span className={['scenario-score', sc.score >= 80 ? 'score-high' : sc.score >= 60 ? 'score-mid' : 'score-low'].join(' ')}>{sc.score}점</span>
-                    <span className="scenario-toggle">{isExpanded ? '▲' : '▼'}</span>
-                  </div>
-
-                  {/* 확장 영역 */}
-                  {isExpanded && (
-                    <div className="scenario-detail">
-                      <div className="scenario-detail-cols">
-                        {/* 왼쪽: 개요 */}
-                        <div className="scenario-col">
-                          <div className="scd-row"><dt>목적</dt><dd>{sc.purpose}</dd></div>
-                          <div className="scd-row"><dt>시작 화면</dt><dd>{sc.startScreen}</dd></div>
-                          <div className="scd-row"><dt>종료 화면</dt><dd>{sc.endScreen}</dd></div>
-                          <div className="scd-row"><dt>복잡도</dt><dd>{'★'.repeat(sc.complexity)}{'☆'.repeat(10 - sc.complexity)} ({sc.complexity}/10)</dd></div>
-                          <div className="scd-row"><dt>성공 조건</dt><dd className="scd-ok">{sc.successCondition}</dd></div>
-                          <div className="scd-row"><dt>실패 조건</dt><dd className="scd-fail">{sc.failureCondition}</dd></div>
-                          <div className="scd-row"><dt>예외 처리</dt><dd>{sc.exceptionHandling}</dd></div>
-                          <div className="scd-row"><dt>개선 의견</dt><dd className="scd-opinion">{sc.opinion}</dd></div>
-                        </div>
-
-                        {/* 오른쪽: Feature Flow + 체크리스트 */}
-                        <div className="scenario-col">
-                          <div className="scd-section-title">Feature Flow</div>
-                          <div className="scenario-flow">
-                            {sc.featureFlow.map((fname, fi) => {
-                              const feat = featureList.find(f => f.name === fname)
-                              const score = feat?.score ?? null
-                              return (
-                                <div key={fi} className="sflow-item">
-                                  {fi > 0 && <div className="sflow-arrow">↓</div>}
-                                  <div
-                                    className={['sflow-feat',
-                                      activeFeatureId === fname ? 'sflow-feat-active' : '',
-                                      sc.dangerFeatures.includes(fname) ? 'sflow-feat-danger' : '',
-                                    ].join(' ')}
-                                    onClick={() => {
-                                      setHighlightFeature(fname)
-                                      setHighlightNode(null)
-                                      setActiveFeatureId(fname)
-                                      setActiveNodeId(null)
-                                      setGraphOpen(true)
-                                    }}
-                                  >
-                                    <span className="sflow-dot" style={{ background: score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : '#ef4444' }} />
-                                    <span className="sflow-name">{fname}</span>
-                                    {score !== null && <span className="sflow-score" style={{ color: score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : '#ef4444' }}>{score}</span>}
-                                    {sc.dangerFeatures.includes(fname) && <span className="sflow-warn">⚠</span>}
-                                  </div>
-                                  {/* Feature 내 함수 미니 목록 */}
-                                  {feat && (
-                                    <div className="sflow-fns">
-                                      {feat.flow.slice(0, 4).map((step, si) => (
-                                        <span key={si} className="sflow-fn">{step}</span>
-                                      ))}
-                                      {feat.flow.length > 4 && <span className="sflow-fn sflow-fn-more">+{feat.flow.length - 4}</span>}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-
-                          <div className="scd-section-title" style={{ marginTop: '16px' }}>위험 함수</div>
-                          <div className="scenario-danger-fns">
-                            {sc.dangerFunctions.map(fn => {
-                              const fnData = functionList.find(f => f.name === fn)
-                              return (
-                                <div
-                                  key={fn}
-                                  className={['sdanger-fn', activeNodeId === fn ? 'sdanger-fn-active' : ''].join(' ')}
-                                  onClick={() => {
-                                    setHighlightNode(fn)
-                                    setHighlightFeature(null)
-                                    setActiveNodeId(fn)
-                                    setActiveFeatureId(null)
-                                    setGraphOpen(true)
-                                  }}
-                                >
-                                  <span className="sdanger-dot" style={{ background: fnData ? (fnData.score >= 80 ? '#22c55e' : fnData.score >= 60 ? '#eab308' : '#ef4444') : '#ef4444' }} />
-                                  <code>{fn}</code>
-                                  {fnData && <span className="sdanger-score" style={{ color: fnData.score >= 80 ? '#22c55e' : fnData.score >= 60 ? '#eab308' : '#ef4444' }}>{fnData.score}점</span>}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </div>
+                    <div className="sc2-item-head">
+                      <code className="sc2-id">{sc.id}</code>
+                      <span className={['sc2-risk', sc.riskLevel==='높음'?'risk-high':sc.riskLevel==='중간'?'risk-mid':'risk-low'].join(' ')}>{sc.riskLevel}</span>
+                      <span className="sc2-name">{sc.name}</span>
+                      <span className={['sc2-score', sc.score>=80?'score-high':sc.score>=60?'score-mid':'score-low'].join(' ')}>{sc.score}</span>
                     </div>
-                  )}
-                </div>
-              )
-            })}
+                    {isActive && (
+                      <div className="sc2-item-meta">
+                        <span className="sc2-meta-row">{sc.startScreen} → {sc.endScreen}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
+
+          {/* ─── 오른쪽: Feature Flow + 경로 애니메이션 ─ */}
+          <div className="sc2-detail">
+            {!activeSc ? (
+              <div className="sc2-empty">시나리오를 선택하면 전체 흐름이 표시됩니다.</div>
+            ) : (<>
+              {/* 시나리오 개요 */}
+              <div className="sc2-overview">
+                <div className="sc2-ov-title">
+                  <code>{activeSc.id}</code>
+                  <strong>{activeSc.name}</strong>
+                  <span className={['sc2-score', activeSc.score>=80?'score-high':activeSc.score>=60?'score-mid':'score-low'].join(' ')}>{activeSc.score}점</span>
+                </div>
+                <div className="sc2-ov-row">
+                  <span className="sc2-ov-label">목적</span>
+                  <span>{activeSc.purpose}</span>
+                </div>
+                <div className="sc2-ov-screens">
+                  <span className="sc2-screen-badge sc2-start">{activeSc.startScreen}</span>
+                  <span className="sc2-screen-arrow">→→→</span>
+                  <span className="sc2-screen-badge sc2-end">{activeSc.endScreen}</span>
+                </div>
+
+                {/* 단계별 사용자 흐름 — 정적 설명 */}
+                {activeSc.stepLabels?.length > 0 && (
+                  <div className="sc2-steps">
+                    <div className="sc2-ov-label" style={{ marginBottom:6 }}>사용자 흐름</div>
+                    {activeSc.stepLabels.map((label, si) => (
+                      <div key={si} className="sc2-step-row">
+                        <span className="sc2-step-num">{si + 1}</span>
+                        <span className="sc2-step-label">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Feature Flow (accordion) — 정적 */}
+              <div className="sc2-flow-title">
+                <span>Feature Flow</span>
+                <span className="sc2-flow-count">{activeSc.featureFlowObj.length}개 기능</span>
+              </div>
+              <div className="sc2-feature-flow">
+                {activeSc.featureFlowObj.map((fobj, fi) => {
+                  const feat      = featureList.find(f => f.name === fobj.featureName)
+                  const score     = feat?.score ?? null
+                  const isOpen    = expandedFeatureIds.has(fobj.featureId)
+                  const isFeatAct = activeFeatureId === fobj.featureName
+                  const isDanger  = activeSc.dangerFeatures?.includes(fobj.featureName)
+
+                  return (
+                    <div key={fobj.featureId} className={['sc2-feat-item',
+                      isDanger ? 'sc2-feat-danger' : '',
+                      isFeatAct ? 'sc2-feat-selected' : '',
+                    ].join(' ')}>
+                      {fi > 0 && <div className="sc2-feat-arrow">↓</div>}
+
+                      {/* Feature 헤더 */}
+                      <div className="sc2-feat-head"
+                        onClick={() => {
+                          const next = new Set(expandedFeatureIds)
+                          next.has(fobj.featureId) ? next.delete(fobj.featureId) : next.add(fobj.featureId)
+                          setExpandedFeatureIds(next)
+                          const fname = fobj.featureName
+                          setHighlightFeature(fname); setHighlightNode(null)
+                          setActiveFeatureId(fname); setActiveNodeId(null)
+                          setGraphOpen(true)
+                          document.querySelector('.integrity-page')?.scrollTo({ top:0, behavior:'smooth' })
+                        }}
+                      >
+                        <span className="sc2-feat-arrow-icon">{isOpen ? '▾' : '▸'}</span>
+                        <span className="sc2-feat-dot" style={{ background: score>=80?'#22c55e':score>=60?'#eab308':'#ef4444' }}/>
+                        <span className="sc2-feat-name">{fobj.featureName}</span>
+                        <span className="sc2-feat-fn-count">{fobj.functions.length}개</span>
+                        {score !== null && <span className={['sc2-feat-score', score>=80?'score-high':score>=60?'score-mid':'score-low'].join(' ')}>{score}</span>}
+                        {isDanger && <span className="sc2-danger-badge">⚠ 위험</span>}
+                      </div>
+
+                      {/* 함수 목록 — 정적 */}
+                      {isOpen && (
+                        <div className="sc2-fn-list">
+                          {fobj.functions.map(fn => (
+                            <div key={fn.id} className="sc2-fn-item"
+                              onClick={e => {
+                                e.stopPropagation()
+                                setHighlightNode(fn.id); setHighlightFeature(null)
+                                setActiveNodeId(fn.id); setActiveFeatureId(null)
+                                setGraphOpen(true)
+                                document.querySelector('.integrity-page')?.scrollTo({ top:0, behavior:'smooth' })
+                              }}
+                            >
+                              <span className="sc2-fn-status">·</span>
+                              <code className="sc2-fn-name">{fn.name}</code>
+                              <span className="sc2-fn-desc">{fn.description}</span>
+                              <span className={['sc2-fn-score', fn.score>=80?'score-high':fn.score>=60?'score-mid':'score-low'].join(' ')}>{fn.score}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* 위험 함수 요약 — 정적 */}
+              <div className="sc2-danger-section">
+                <div className="scd-section-title">위험 함수</div>
+                <div className="scenario-danger-fns">
+                  {activeSc.dangerFunctions.map(fn => {
+                    const fnData = functionList.find(f => f.name === fn)
+                    return (
+                      <div key={fn}
+                        className={['sdanger-fn', activeNodeId===fn?'sdanger-fn-active':''].join(' ')}
+                        onClick={() => {
+                          setHighlightNode(fn); setHighlightFeature(null)
+                          setActiveNodeId(fn); setActiveFeatureId(null)
+                          setGraphOpen(true)
+                          document.querySelector('.integrity-page')?.scrollTo({ top:0, behavior:'smooth' })
+                        }}
+                      >
+                        <span className="sdanger-dot" style={{ background: fnData?(fnData.score>=80?'#22c55e':fnData.score>=60?'#eab308':'#ef4444'):'#ef4444' }}/>
+                        <code>{fn}</code>
+                        {fnData && <span className="sdanger-score" style={{ color: fnData.score>=80?'#22c55e':fnData.score>=60?'#eab308':'#ef4444' }}>{fnData.score}점</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </>)}
+          </div>
+
         </div>
-      )}
+        )
+      })()}
 
       {tab === 'summary' && (
         <div className="integrity-section integrity-summary">

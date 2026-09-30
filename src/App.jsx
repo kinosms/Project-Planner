@@ -1410,12 +1410,6 @@ const projectSummary =
           >
             히스토리
           </button>
-          <button
-            className={`planner-mobile-hide ${page === 'integrity' ? 'active' : ''}`}
-            onClick={() => setPage('integrity')}
-          >
-            무결성체크
-          </button>
         </div>
         <h1>
           {page === 'planner'

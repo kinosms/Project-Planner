@@ -421,19 +421,6 @@ const moveLocalHistory = direction => {
     }
   }
 
-  const downloadLocalBackup = () => {
-    const blob = new Blob([JSON.stringify({
-      ...buildSnapshot(), localHistory,
-      beforeServerLoad: JSON.parse(localStorage.getItem('projectPlannerBeforeServerLoad') || 'null'),
-    }, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'planner-local-backup.json'
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-
   useEffect(() => {
     loadFromDB()
   }, [])
@@ -1062,7 +1049,6 @@ const projectSummary =
       <div role="status" style={{ padding: 8, background: '#eef2ff', color: '#172554' }}>
         {isSaving ? '저장 중입니다. 완료될 때까지 편집을 기다려 주세요.' :
           loadError || (dbReady ? '개인 Planner · 서버 연결됨' : '서버 데이터를 확인하고 있습니다…')}
-        <button onClick={downloadLocalBackup} disabled={isSaving}>로컬 백업 다운로드</button>
         {loadError && <button onClick={loadFromDB}>다시 불러오기</button>}
       </div>
       <div inert={isSaving ? true : undefined}>

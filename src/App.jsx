@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { plannerRequest } from './plannerApi'
 import { useEffect, useMemo, useState, useRef } from 'react'
 import IntegrityCheck from './IntegrityCheck'
 import {
@@ -12,6 +12,13 @@ import {
 } from 'date-fns'
 
 import './App.css'
+
+function safeUrl(value) {
+  try {
+    const url = new URL(value)
+    return ['https:', 'http:'].includes(url.protocol) ? url.href : undefined
+  } catch { return undefined }
+}
 
 function IconLinkSingle() {
   return (
@@ -66,6 +73,11 @@ export default function App() {
   const [selectedOwner, setSelectedOwner] = useState('')
   const [memoEditor, setMemoEditor] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [dbReady, setDbReady] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const revisionRef = useRef(null)
+  const savingRef = useRef(false)
+  const loadingRef = useRef(false)
   const LOCAL_HISTORY_KEY = 'projectPlannerLocalHistory'
   const [localHistory, setLocalHistory] = useState(() => {
     const saved = localStorage.getItem(LOCAL_HISTORY_KEY)
@@ -253,7 +265,7 @@ const [toast, setToast] = useState('')
   
 
   
-  const [loadedProjects, setLoadedProjects] = useState([])
+
 
 
   const ownerSuggestions = [
@@ -269,171 +281,6 @@ const [toast, setToast] = useState('')
     localStorage.setItem('projectPlannerProjects', JSON.stringify(next))
   }
 
-  const saveChangeHistories = async () => {
-    const historyRows = []
-
-    loadedProjects.forEach(oldProject => {
-
-      const newProject = projects.find(p => p.id === oldProject.id)
-
-      // 프로젝트 삭제
-
-      if (!newProject) {
-
-        historyRows.push({
-
-          action: '프로젝트 삭제',
-
-          project_name: oldProject.name,
-
-        })
-
-        return
-
-      }
-
-      // 프로젝트명 변경
-
-      if (oldProject.name !== newProject.name) {
-
-        historyRows.push({
-
-          action: '프로젝트명 변경',
-
-          project_name: oldProject.name,
-
-          field_name: '프로젝트명',
-
-          before_value: oldProject.name,
-
-          after_value: newProject.name,
-
-        })
-
-      }
-
-      oldProject.tasks.forEach(oldTask => {
-
-        const newTask = newProject.tasks.find(t => t.id === oldTask.id)
-
-        // 업무 삭제
-
-        if (!newTask) {
-
-          historyRows.push({
-
-            action: '업무 삭제',
-
-            project_name: newProject.name,
-
-            task_work: oldTask.work,
-
-            task_title: oldTask.title,
-
-          })
-
-          return
-
-        }
-
-        ;[
-
-          ['work', '업무'],
-
-          ['title', '상세내용'],
-
-          ['owner', '담당자'],
-
-          ['artifactName', '문서명'],
-
-          ['artifactUrl', '문서URL'],
-
-        ].forEach(([key, label]) => {
-
-          const before = oldTask[key] || ''
-          const after = newTask[key] || ''
-
-          // 빈 값에서 처음 입력한 경우는 변경사항으로 취급하지 않음
-          if (before === '') return
-
-          if (before !== after) {
-
-            historyRows.push({
-
-              action: '업무 정보 변경',
-
-              project_name: newProject.name,
-
-              task_work: newTask.work,
-
-              task_title: newTask.title,
-
-              field_name: label,
-
-              before_value: before,
-
-              after_value: after,
-
-            })
-
-          }
-
-        })
-
-        const oldDates = [
-
-          ...(oldTask.dates || []),
-
-          ...(oldTask.redDates || []),
-
-        ].sort().join(',')
-
-        const newDates = [
-
-          ...(newTask.dates || []),
-
-          ...(newTask.redDates || []),
-
-        ].sort().join(',')
-
-        if (oldDates !== newDates && oldDates !== '') {
-
-          historyRows.push({
-
-            action: '일정 변경',
-
-            project_name: newProject.name,
-
-            task_work: newTask.work,
-
-            task_title: newTask.title,
-
-            field_name: '일정',
-
-            before_value: oldDates,
-
-            after_value: newDates,
-
-          })
-
-        }
-
-      })
-
-    })
-
-    console.log('HISTORY_ROWS=', historyRows)
-    if (historyRows.length === 0) return
-    const { error } = await supabase
-      .from('planner_histories')
-      .insert(historyRows)
-      console.log('HISTORY_INSERT_ERROR=', error)
-    if (error) {
-      console.log('history save error=', error)
-    }
-  }
-
-
   const showToast = message => {
   setToast(message)
   setTimeout(() => setToast(''), 2200)
@@ -446,17 +293,6 @@ const buildSnapshot = () => ({
   rangeEnd,
   customHolidayDates: JSON.parse(JSON.stringify(customHolidayDates)),
 })
-
-const saveLocalSnapshot = () => {
-  const snapshot = buildSnapshot()
-  const currentList = localHistory.slice(0, historyIndex + 1)
-  const nextList = [...currentList, snapshot].slice(-3)
-  const nextIndex = nextList.length - 1
-
-  setLocalHistory(nextList)
-  setHistoryIndex(nextIndex)
-  localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(nextList))
-}
 
 const applySnapshot = snapshot => {
   if (!snapshot) return
@@ -505,237 +341,98 @@ const moveLocalHistory = direction => {
   }, [isSaving])
 
 
+  const applyServerState = data => {
+    setProjects(data.projects)
+    setHistories(data.histories)
+    revisionRef.current = data.revision
+    localStorage.setItem('projectPlannerProjects', JSON.stringify(data.projects))
+    if (data.rangeStart && data.rangeEnd) {
+      setRangeStart(data.rangeStart)
+      setRangeEnd(data.rangeEnd)
+      localStorage.setItem('projectPlannerRangeStart', data.rangeStart)
+      localStorage.setItem('projectPlannerRangeEnd', data.rangeEnd)
+    }
+    if (data.customHolidayDates !== null) {
+      setCustomHolidayDates(data.customHolidayDates)
+      localStorage.setItem('projectPlannerCustomHolidayDates', JSON.stringify(data.customHolidayDates))
+    }
+  }
+
   const saveAllToDB = async () => {
-  if (isSaving) return
-  if (!confirm('현재 화면 데이터를 DB에 저장할까?')) return
-
-
-  setIsSaving(true)
-
-  try {
-    await saveChangeHistories()
-
-    const { error: deleteError } = await supabase
-      .from('projects')
-      .delete()
-      .neq('id', 0)
-
-    if (deleteError) throw deleteError
-
-    for (const project of projects) {
-      const { data: insertedProjects, error: projectError } = await supabase
-        .from('projects')
-        .insert({ name: project.name || '' })
-        .select()
-
-      if (projectError) throw projectError
-
-      const insertedProject = insertedProjects[0]
-
-      for (const task of project.tasks) {
-        const { data: insertedTasks, error: taskError } = await supabase
-          .from('tasks')
-          .insert({
-            project_id: insertedProject.id,
-            work: task.work || '',
-            title: task.title || '',
-            owner: task.owner || '',
-            status: task.status || '대기',
-            artifact_name: task.artifactName || '',
-            artifact_url: task.artifactUrls?.length
-              ? JSON.stringify(task.artifactUrls)
-              : task.artifactUrl || '',
-          })
-          .select()
-
-        if (taskError) throw taskError
-
-        const insertedTask = insertedTasks[0]
-        const memoDates = task.memoDates || {}
-
-        const rows = [
-          ...(task.dates || []).map(date => ({
-            task_id: insertedTask.id,
-            work_date: date,
-            color: 'blue',
-            memo: memoDates[date] || null,
-          })),
-          ...(task.redDates || []).map(date => ({
-            task_id: insertedTask.id,
-            work_date: date,
-            color: 'red',
-            memo: memoDates[date] || null,
-          })),
-          ...Object.entries(memoDates)
-            .filter(([date]) =>
-              !(task.dates || []).includes(date) &&
-              !(task.redDates || []).includes(date)
-            )
-            .map(([date, memo]) => ({
-              task_id: insertedTask.id,
-              work_date: date,
-              color: 'memo',
-              memo,
-            })),
-        ]
-
-        if (rows.length > 0) {
-          const { error: dateError } = await supabase
-            .from('task_dates')
-            .insert(rows)
-
-          if (dateError) throw dateError
-        }
-      }
-    }
-
-    const { error: settingError } = await supabase
-      .from('planner_settings')
-      .upsert({
-        id: 1,
-        range_start: rangeStart,
-        range_end: rangeEnd,
-        updated_at: new Date().toISOString(),
+    if (savingRef.current || !dbReady || revisionRef.current === null) return
+    if (!confirm('현재 화면 데이터를 DB에 저장할까요?')) return
+    savingRef.current = true
+    setIsSaving(true)
+    try {
+      const data = await plannerRequest('PUT', {
+        revision: revisionRef.current,
+        projects,
+        rangeStart,
+        rangeEnd,
+        customHolidayDates,
       })
-
-    if (settingError) throw settingError
-
-    setLoadedProjects(JSON.parse(JSON.stringify(projects)))
-    await loadHistories()
-
-    saveLocalSnapshot()
-    showToast('DB 저장 완료')
-  } catch (error) {
-
-    console.log('save failed=', error)
-
-    showToast('DB 저장 실패')
-
-  } finally {
-    setIsSaving(false)
-  }
-}
-
-
-  const loadHistories = async () => {
-  const { data, error } = await supabase
-    .from('planner_histories')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(100)
-
-  if (error) {
-    console.log('history load error=', error)
-    return
-  }
-
-  setHistories(data || [])
-}
-
-const loadFromDB = async () => {
-  const { data: settingRows, error: settingError } = await supabase
-    .from('planner_settings')
-    .select('*')
-    .eq('id', 1)
-    .limit(1)
-
-  if (!settingError && settingRows?.[0]) {
-    const dbStart = settingRows[0].range_start
-    const dbEnd = settingRows[0].range_end
-
-    if (dbStart && dbEnd) {
-      setRangeStart(dbStart)
-      setRangeEnd(dbEnd)
-      localStorage.setItem('projectPlannerRangeStart', dbStart)
-      localStorage.setItem('projectPlannerRangeEnd', dbEnd)
+      applyServerState(data)
+      // DB에서 발급한 ID로 스냅샷을 남깁니다.
+      const snapshot = { ...buildSnapshot(), projects: data.projects }
+      const nextList = [...localHistory.slice(0, historyIndex + 1), snapshot].slice(-3)
+      setLocalHistory(nextList)
+      setHistoryIndex(nextList.length - 1)
+      localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(nextList))
+      showToast('DB 저장 완료')
+    } catch (error) {
+      // 응답 유실 시 커밋 여부를 알 수 없으므로 자동 재시도하지 않습니다.
+      setDbReady(false)
+      setLoadError(error.message + ' 로컬 작업은 유지됩니다. 백업 후 다시 불러와 주세요.')
+    } finally {
+      savingRef.current = false
+      setIsSaving(false)
     }
   }
 
-  const { data: projectRows, error: projectError } = await supabase
-    .from('projects')
-    .select('*')
-    .order('id', { ascending: true })
-
-  if (projectError) {
-    console.log('project load error=', projectError)
-    return
+  const loadFromDB = async () => {
+    if (loadingRef.current || savingRef.current) return
+    loadingRef.current = true
+    setDbReady(false)
+    setLoadError('')
+    try {
+      // 원래 로컬 데이터는 덮어쓰기 전에 별도 보관합니다.
+      const backup = {}
+      for (const key of ['projectPlannerProjects', LOCAL_HISTORY_KEY,
+        'projectPlannerRangeStart', 'projectPlannerRangeEnd', 'projectPlannerCustomHolidayDates']) {
+        backup[key] = localStorage.getItem(key)
+      }
+      localStorage.setItem('projectPlannerBeforeServerLoad', JSON.stringify(backup))
+      const data = await plannerRequest('GET')
+      const localProjects = JSON.parse(localStorage.getItem('projectPlannerProjects') || '[]')
+      const keepLocal = localProjects.length > 0 &&
+        JSON.stringify(localProjects) !== JSON.stringify(data.projects) &&
+        !confirm('DB 데이터와 로컬 작업이 다릅니다. 확인: DB 불러오기 / 취소: 로컬 작업 유지. 기존 로컬 사본은 별도 보관됩니다.')
+      if (keepLocal) {
+        revisionRef.current = data.revision
+        setHistories(data.histories)
+      } else {
+        applyServerState(data)
+      }
+      setDbReady(true)
+    } catch (error) {
+      setLoadError(error.message + ' 로컬 데이터는 유지됩니다.')
+    } finally {
+      loadingRef.current = false
+    }
   }
 
-  const { data: taskRows, error: taskError } = await supabase
-    .from('tasks')
-    .select('*')
-    .order('id', { ascending: true })
-
-  if (taskError) {
-    console.log('task load error=', taskError)
-    return
+  const downloadLocalBackup = () => {
+    const blob = new Blob([JSON.stringify({
+      ...buildSnapshot(), localHistory,
+      beforeServerLoad: JSON.parse(localStorage.getItem('projectPlannerBeforeServerLoad') || 'null'),
+    }, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'planner-local-backup.json'
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
-
-  const { data: dateRows, error: dateError } = await supabase
-    .from('task_dates')
-    .select('*')
-    .order('work_date', { ascending: true })
-
-  if (dateError) {
-    console.log('date load error=', dateError)
-    return
-  }
-
-  const nextProjects = projectRows.map(project => ({
-    id: project.id,
-    name: project.name || '',
-    tasks: taskRows
-      .filter(task => task.project_id === project.id)
-      .map(task => ({
-        id: task.id,
-        work: task.work || '',
-        title: task.title || '',
-        owner: task.owner || '',
-        status: task.status || '대기',
-        artifactName: task.artifact_name || '',
-        ...(() => {
-          const raw = task.artifact_url || ''
-          try {
-            const parsed = raw.startsWith('[') ? JSON.parse(raw) : null
-            if (Array.isArray(parsed)) {
-              return {
-                artifactUrls: parsed.map(item => typeof item === 'string' ? item : item.url).filter(Boolean),
-                artifactUrl: parsed[0] || '',
-              }
-            }
-          } catch {}
-          return { artifactUrls: raw ? [raw] : [], artifactUrl: raw }
-        })(),
-        dates: dateRows
-          .filter(date => date.task_id === task.id && date.color !== 'red')
-          .map(date => date.work_date),
-        redDates: dateRows
-          .filter(date => date.task_id === task.id && date.color === 'red')
-          .map(date => date.work_date),
-        memoDates: dateRows
-          .filter(date => date.task_id === task.id && date.memo)
-          .reduce((acc, date) => {
-            acc[date.work_date] = date.memo
-            return acc
-          }, {}),
-      })),
-  }))
-
-  setProjects(nextProjects)
-  localStorage.setItem('projectPlannerProjects', JSON.stringify(nextProjects))
-  setLoadedProjects(JSON.parse(JSON.stringify(nextProjects)))
-
-  const defaultStart = format(startOfMonth(addMonths(new Date(), -1)), 'yyyy-MM-dd')
-  const defaultEnd = format(endOfMonth(addMonths(new Date(), 1)), 'yyyy-MM-dd')
-
-  setSelectedRange('month')
-  setRangeStart(defaultStart)
-  setRangeEnd(defaultEnd)
-  localStorage.setItem('projectPlannerRangeStart', defaultStart)
-  localStorage.setItem('projectPlannerRangeEnd', defaultEnd)
-
-  await loadHistories()
-}
 
   useEffect(() => {
     loadFromDB()
@@ -1049,25 +746,8 @@ const loadFromDB = async () => {
     updateRange(rangeStart, nextEnd)
   }
 
-  const toggleScheduleLock = () => {
-    if (!scheduleLocked) {
-      setScheduleLocked(true)
-      return
-    }
-
-    const password = prompt('관리자 LDAP를 입력해주세요')
-    const passwords = [
-      'daisy.0724',
-      'geronimo.sung',
-    ]
-    if (passwords.includes(password)) {
-      setScheduleLocked(false)
-    } else {
-      alert('권한이 없습니다')
-    }
-  }
-
-
+  // 일정 편집 실수 방지용입니다. 접근 보호는 Vercel에서 처리합니다.
+  const toggleScheduleLock = () => setScheduleLocked(locked => !locked)
 
   const isDateSelected = (task, date) => {
     return task.dates?.includes(date) || false
@@ -1379,6 +1059,13 @@ const projectSummary =
 
   return (
     <div className="app" onMouseUp={handleAppMouseUp}>
+      <div role="status" style={{ padding: 8, background: '#eef2ff', color: '#172554' }}>
+        {isSaving ? '저장 중입니다. 완료될 때까지 편집을 기다려 주세요.' :
+          loadError || (dbReady ? '개인 Planner · 서버 연결됨' : '서버 데이터를 확인하고 있습니다…')}
+        <button onClick={downloadLocalBackup} disabled={isSaving}>로컬 백업 다운로드</button>
+        {loadError && <button onClick={loadFromDB}>다시 불러오기</button>}
+      </div>
+      <div inert={isSaving ? true : undefined}>
       <datalist id="owner-suggestions">
         {ownerSuggestions.map(owner => (
           <option key={owner} value={owner} />
@@ -1465,13 +1152,13 @@ const projectSummary =
             </button>
 
             <button className="planner-mobile-hide" onClick={toggleScheduleLock}>
-              {scheduleLocked ? '🔒 잠금상태' : '편집중'}
+              {scheduleLocked ? '🔒 일정 편집 잠금' : '편집중'}
             </button>
 
             <button
               className="planner-mobile-hide"
               onClick={saveAllToDB}
-              disabled={isSaving}
+              disabled={isSaving || !dbReady}
             >
               {isSaving ? '저장중...' : '저장'}
             </button>
@@ -1878,7 +1565,7 @@ const projectSummary =
         />
         ) : page === 'integrity' ? (
 
-          <IntegrityCheck projects={projects} />
+          <><p role="note">이 화면은 수정 전 코드의 정적 분석 자료입니다. 현재 보안 상태를 자동 점검한 결과가 아닙니다.</p><IntegrityCheck projects={projects} /></>
 
         ) : window.innerWidth > 768 ? (
 
@@ -1909,7 +1596,7 @@ const projectSummary =
                   />
                   <button
                     className="open-url-btn"
-                    onClick={() => { if (url) window.open(url, '_blank') }}
+                    onClick={() => { if (safeUrl(url)) window.open(safeUrl(url), '_blank', 'noopener,noreferrer') }}
                     title="열기"
                   >↗</button>
                   <button
@@ -2070,6 +1757,7 @@ const projectSummary =
 
 )}
 
+      </div>
     </div>
   )
 }
@@ -2506,13 +2194,13 @@ function Dashboard({
                     {task.artifactUrls?.length ? (
                       <span className="task-doc-links">
                         {task.artifactUrls.map((url, i) => (
-                          <a key={i} href={url} target="_blank" rel="noreferrer" className="task-doc-link">
+                          <a key={i} href={safeUrl(url)} target="_blank" rel="noreferrer" className="task-doc-link">
                             {task.artifactName || `문서${i + 1}`}
                           </a>
                         ))}
                       </span>
                     ) : task.artifactUrl ? (
-                      <a href={task.artifactUrl} target="_blank" rel="noreferrer" className="task-doc-link">
+                      <a href={safeUrl(task.artifactUrl)} target="_blank" rel="noreferrer" className="task-doc-link">
                         {task.artifactName || '문서열기'}
                       </a>
                     ) : '-'}
@@ -2629,6 +2317,12 @@ function buildHistorySentence(history) {
       }
       return `${taskLabel}의 일정이 변경되었습니다. ${formatDates(before)} → ${formatDates(after)}`
     }
+    case '프로젝트 추가':
+      return '프로젝트가 추가되었습니다.'
+    case '업무 추가':
+      return `${taskLabel} 업무가 추가되었습니다.`
+    case '일정·메모 변경':
+      return `${taskLabel}의 일정 또는 메모가 변경되었습니다.`
     case '순서 이동':
       return `${taskLabel}의 순서가 변경되었습니다.`
     default:

@@ -9,7 +9,11 @@ export async function plannerRequest(method, payload) {
     throw new Error('접근 인증 또는 서버 배포 설정을 확인해 주세요.')
   }
   const data = await response.json()
-  if (!response.ok) throw new Error(data.error || `요청 실패 (${response.status})`)
+  if (!response.ok) {
+    const error = new Error(data.error || `요청 실패 (${response.status})`)
+    error.status = response.status
+    throw error
+  }
   if (!Array.isArray(data.projects) || !Array.isArray(data.histories) ||
       !Number.isSafeInteger(data.revision)) throw new Error('서버 응답 형식 오류')
   data.projects = data.projects.map(project => ({

@@ -1,3 +1,4 @@
+import { payloadError } from './lib/plannerValidation.js'
 import { plannerRequest } from './plannerApi'
 import { useEffect, useMemo, useState, useRef } from 'react'
 import IntegrityCheck from './IntegrityCheck'
@@ -52,14 +53,7 @@ export default function App() {
 
   const [compactMode, setCompactMode] = useState(false)
   const [hideCompletedProjects, setHideCompletedProjects] = useState(false)
-  const [rangeStart, setRangeStart] = useState(() => {
-  return localStorage.getItem('projectPlannerRangeStart') || '2026-04-01'
-  })
-
-  const [rangeEnd, setRangeEnd] = useState(() => {
-    return localStorage.getItem('projectPlannerRangeEnd') || '2026-07-31'
-  })
-  const [selectedRange, setSelectedRange] = useState('month')
+  const [extraMonths, setExtraMonths] = useState(0)
 
   const [isPainting, setIsPainting] = useState(false)
   const [paintMode, setPaintMode] = useState(null)
@@ -74,6 +68,7 @@ export default function App() {
   const [memoEditor, setMemoEditor] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [dbReady, setDbReady] = useState(false)
+  const [canEdit, setCanEdit] = useState(false)
   const [loadError, setLoadError] = useState('')
   const revisionRef = useRef(null)
   const savingRef = useRef(false)
@@ -98,15 +93,6 @@ const [toast, setToast] = useState('')
 
 
   const [histories, setHistories] = useState([])
-  const days = useMemo(() => {
-    return eachDayOfInterval({
-      start: new Date(rangeStart),
-      end: new Date(rangeEnd),
-    }).filter(day => {
-      const dayOfWeek = day.getDay()
-      return dayOfWeek !== 0 && dayOfWeek !== 6
-    })
-  }, [rangeStart, rangeEnd])
 
   const isProjectCompleted = project => {
 
@@ -125,6 +111,48 @@ const [toast, setToast] = useState('')
       return projects.filter(project => !isProjectCompleted(project))
 
     }, [projects, hideCompletedProjects])
+
+  // Leave enough context on both sides to center today, even with no schedules.
+  const [calendarViewportWidth, setCalendarViewportWidth] = useState(window.innerWidth)
+  useEffect(() => {
+    const resize = () => setCalendarViewportWidth(window.innerWidth)
+    window.addEventListener('resize', resize)
+    return () => window.removeEventListener('resize', resize)
+  }, [])
+
+  // Include whole months for all visible schedules; saved ranges cannot clip them.
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    const now = new Date()
+    const contextDays = Math.ceil(calendarViewportWidth / 32 / 2 * 7 / 5) + 7
+    let start = format(startOfMonth(subDays(now, contextDays)), 'yyyy-MM-dd')
+    let end = format(endOfMonth(subDays(now, -contextDays)), 'yyyy-MM-dd')
+    for (const project of visibleProjects) {
+      for (const task of project.tasks || []) {
+        for (const date of [...(task.dates || []), ...(task.redDates || [])]) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+              !Number.isFinite(new Date(`${date}T00:00:00`).getTime())) continue
+          if (date < start) start = date
+          if (date > end) end = date
+        }
+      }
+    }
+    start = format(startOfMonth(new Date(`${start}T00:00:00`)), 'yyyy-MM-dd')
+    end = format(endOfMonth(new Date(`${end}T00:00:00`)), 'yyyy-MM-dd')
+    if (extraMonths > 0) {
+      end = format(endOfMonth(addMonths(new Date(`${end}T00:00:00`), extraMonths)), 'yyyy-MM-dd')
+    }
+    return { rangeStart: start, rangeEnd: end }
+  }, [visibleProjects, extraMonths, calendarViewportWidth])
+
+  const days = useMemo(() => {
+    return eachDayOfInterval({
+      start: new Date(`${rangeStart}T00:00:00`),
+      end: new Date(`${rangeEnd}T00:00:00`),
+    }).filter(day => {
+      const dayOfWeek = day.getDay()
+      return dayOfWeek !== 0 && dayOfWeek !== 6
+    })
+  }, [rangeStart, rangeEnd])
 
     const flatTasks = visibleProjects.flatMap(project =>
 
@@ -149,7 +177,7 @@ const [toast, setToast] = useState('')
 
   const dashboardTasks = validTasks.filter(task => {
     const taskDates = [...(task.dates || []), ...(task.redDates || [])]
-    return taskDates.some(date => date >= rangeStart && date <= rangeEnd)
+    return taskDates.length > 0
   })
 
 
@@ -160,6 +188,7 @@ const [toast, setToast] = useState('')
   })
 
   const toggleCustomHolidayDate = date => {
+    if (!canEdit) return
     if (customHolidayDates.includes(date)) {
       const next = customHolidayDates.filter(d => d !== date)
       setCustomHolidayDates(next)
@@ -174,23 +203,35 @@ const [toast, setToast] = useState('')
 
   const taskRefs = useRef({})
 
-  const scrollToToday = () => {
-    setTimeout(() => {
-      const plannerEl = document.querySelector('.planner')
-      if (!plannerEl) return
-      const todayIndex = days.findIndex(
-        day => format(day, 'yyyy-MM-dd') === todayString
-      )
-      if (todayIndex < 0) return
-      plannerEl.scrollTo({
-        left: Math.max(
-          0,
-          todayIndex * 32 - plannerEl.clientWidth * 0.1
-        ),
-        behavior: 'smooth',
-      })
-    }, 300)
+  const centerToday = (behavior = 'smooth') => {
+    const plannerEl = document.querySelector('.planner')
+    const cells = document.querySelectorAll('.date-row .day-cell')
+    const today = format(new Date(), 'yyyy-MM-dd')
+    // Weekends are not rendered: use the next visible weekday.
+    const cell = [...cells].find(day => day.dataset.date >= today)
+    const info = plannerEl?.querySelector('.info-panel')
+    if (!plannerEl || !cell || !info) return
+    const plannerRect = plannerEl.getBoundingClientRect()
+    const cellRect = cell.getBoundingClientRect()
+    const infoWidth = info.getBoundingClientRect().width
+    const center = plannerRect.left + plannerEl.clientLeft + infoWidth +
+      (plannerEl.clientWidth - infoWidth) / 2
+    plannerEl.scrollTo({
+      left: Math.max(0, plannerEl.scrollLeft + cellRect.left + cellRect.width / 2 - center),
+      behavior,
+    })
   }
+
+  const scrollToToday = () => {
+    requestAnimationFrame(() => requestAnimationFrame(() => centerToday()))
+  }
+
+  // Position on entry and after the initial server load, never on ordinary edits.
+  useEffect(() => {
+    if (page !== 'planner') return
+    const frame = requestAnimationFrame(() => centerToday('instant'))
+    return () => cancelAnimationFrame(frame)
+  }, [page, dbReady])
 
   const focusTask = task => {
     setPage('planner')
@@ -277,6 +318,7 @@ const [toast, setToast] = useState('')
   ]
 
   const saveProjects = next => {
+    if (!canEdit) return
     setProjects(next)
     localStorage.setItem('projectPlannerProjects', JSON.stringify(next))
   }
@@ -295,16 +337,13 @@ const buildSnapshot = () => ({
 })
 
 const applySnapshot = snapshot => {
+    if (!canEdit) return
   if (!snapshot) return
 
   setProjects(snapshot.projects || [])
-  setRangeStart(snapshot.rangeStart || rangeStart)
-  setRangeEnd(snapshot.rangeEnd || rangeEnd)
   setCustomHolidayDates(snapshot.customHolidayDates || [])
 
   localStorage.setItem('projectPlannerProjects', JSON.stringify(snapshot.projects || []))
-  localStorage.setItem('projectPlannerRangeStart', snapshot.rangeStart || rangeStart)
-  localStorage.setItem('projectPlannerRangeEnd', snapshot.rangeEnd || rangeEnd)
   localStorage.setItem(
     'projectPlannerCustomHolidayDates',
     JSON.stringify(snapshot.customHolidayDates || [])
@@ -312,6 +351,7 @@ const applySnapshot = snapshot => {
 }
 
 const moveLocalHistory = direction => {
+    if (!canEdit) return
   const nextIndex = historyIndex + direction
 
   if (nextIndex < 0 || nextIndex >= localHistory.length) return
@@ -346,20 +386,28 @@ const moveLocalHistory = direction => {
     setHistories(data.histories)
     revisionRef.current = data.revision
     localStorage.setItem('projectPlannerProjects', JSON.stringify(data.projects))
-    if (data.rangeStart && data.rangeEnd) {
-      setRangeStart(data.rangeStart)
-      setRangeEnd(data.rangeEnd)
-      localStorage.setItem('projectPlannerRangeStart', data.rangeStart)
-      localStorage.setItem('projectPlannerRangeEnd', data.rangeEnd)
-    }
     if (data.customHolidayDates !== null) {
       setCustomHolidayDates(data.customHolidayDates)
       localStorage.setItem('projectPlannerCustomHolidayDates', JSON.stringify(data.customHolidayDates))
     }
   }
 
+  const downloadBackup = () => {
+    const blob = new Blob([JSON.stringify(buildSnapshot(), null, 2)], { type: 'application/json' })
+    const href = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = href
+    link.download = `planner-backup-${Date.now()}.json`
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(href), 1000)
+  }
+
   const saveAllToDB = async () => {
+    if (!canEdit) return
     if (savingRef.current || !dbReady || revisionRef.current === null) return
+    const payload = { revision: revisionRef.current, projects, rangeStart, rangeEnd, customHolidayDates }
+    const validationError = payloadError(payload)
+    if (validationError) { showToast(validationError); setLoadError(validationError); return }
     if (!confirm('현재 화면 데이터를 DB에 저장할까요?')) return
     savingRef.current = true
     setIsSaving(true)
@@ -381,8 +429,12 @@ const moveLocalHistory = direction => {
       showToast('DB 저장 완료')
     } catch (error) {
       // 응답 유실 시 커밋 여부를 알 수 없으므로 자동 재시도하지 않습니다.
-      setDbReady(false)
-      setLoadError(error.message + ' 로컬 작업은 유지됩니다. 백업 후 다시 불러와 주세요.')
+      if ([400, 413, 415].includes(error.status)) {
+        setLoadError(error.message + ' 현재 작업은 유지됩니다. 해당 항목을 수정한 뒤 다시 저장하세요.')
+      } else {
+        setDbReady(false)
+        setLoadError(error.message + ' 로컬 작업은 유지됩니다. 백업 후 다시 불러와 주세요.')
+      }
     } finally {
       savingRef.current = false
       setIsSaving(false)
@@ -393,6 +445,8 @@ const moveLocalHistory = direction => {
     if (loadingRef.current || savingRef.current) return
     loadingRef.current = true
     setDbReady(false)
+    setCanEdit(false)
+    setScheduleLocked(true)
     setLoadError('')
     try {
       // 원래 로컬 데이터는 덮어쓰기 전에 별도 보관합니다.
@@ -404,7 +458,9 @@ const moveLocalHistory = direction => {
       localStorage.setItem('projectPlannerBeforeServerLoad', JSON.stringify(backup))
       const data = await plannerRequest('GET')
       const localProjects = JSON.parse(localStorage.getItem('projectPlannerProjects') || '[]')
-      const keepLocal = localProjects.length > 0 &&
+      setCanEdit(data.canEdit === true)
+      if (data.canEdit !== true) setScheduleLocked(true)
+      const keepLocal = data.canEdit === true && localProjects.length > 0 &&
         JSON.stringify(localProjects) !== JSON.stringify(data.projects) &&
         !confirm('DB 데이터와 로컬 작업이 다릅니다. 확인: DB 불러오기 / 취소: 로컬 작업 유지. 기존 로컬 사본은 별도 보관됩니다.')
       if (keepLocal) {
@@ -461,35 +517,6 @@ const moveLocalHistory = direction => {
     )
   }
   
-  useEffect(() => {
-
-  if (page !== 'planner') return
-
-  if (!selectedRange) return
-
-  const plannerEl = document.querySelector('.planner')
-
-  if (!plannerEl) return
-
-  const currentMonthIndex = days.findIndex(
-
-    day => format(day, 'yyyy-MM') === format(new Date(), 'yyyy-MM')
-
-  )
-
-  if (currentMonthIndex < 0) return
-
-  plannerEl.scrollTo({
-
-    left: Math.max(0, currentMonthIndex * 32 - 160),
-
-    behavior: 'smooth',
-
-  })
-
-}, [page, selectedRange, days])
-
-
   const moveNextCell = (e, projectId) => {
     if (e.key !== 'Enter' && e.key !== 'Tab') return
     if (e.nativeEvent.isComposing) return
@@ -686,55 +713,15 @@ const moveLocalHistory = direction => {
     )
   }
 
-  const updateRange = (start, end) => {
-    setRangeStart(start)
-    setRangeEnd(end)
-    localStorage.setItem('projectPlannerRangeStart', start)
-    localStorage.setItem('projectPlannerRangeEnd', end)
-  }
-
-  const setRange = mode => {
-  setSelectedRange(mode)
-  if (mode === 'month') {
-    const start = startOfMonth(addMonths(new Date(), -1))
-    const end = endOfMonth(addMonths(new Date(), 1))
-    updateRange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
-  }
-  if (mode === '3months') {
-    const start = startOfMonth(addMonths(new Date(), -2))
-    const end = endOfMonth(addMonths(new Date(), 1))
-    updateRange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
-  }
-  if (mode === '6months') {
-    const start = startOfMonth(addMonths(new Date(), -5))
-    const end = endOfMonth(addMonths(new Date(), 1))
-    updateRange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
-  }
-  scrollToCurrentMonth()
-}
-
   const scrollToCurrentMonth = () => {
-    setTimeout(() => {
-      const plannerEl = document.querySelector('.timeline-panel')
-      if (!plannerEl) return
-      const todayIndex = days.findIndex(
-        day => format(day, 'yyyy-MM-dd') === todayString
-      )
-      if (todayIndex < 0) return
-      plannerEl.scrollTo({
-        left: Math.max(0, todayIndex * 32 - 160),
-        behavior: 'smooth',
-      })
-    }, 200)
+    setPage('planner')
+    scrollToToday()
   }
 
-  const addOneMonth = () => {
-    const nextEnd = format(endOfMonth(addMonths(new Date(rangeEnd), 1)), 'yyyy-MM-dd')
-    updateRange(rangeStart, nextEnd)
-  }
+  const addOneMonth = () => setExtraMonths(months => months + 1)
 
   // 일정 편집 실수 방지용입니다. 접근 보호는 Vercel에서 처리합니다.
-  const toggleScheduleLock = () => setScheduleLocked(locked => !locked)
+  const toggleScheduleLock = () => { if (canEdit) setScheduleLocked(locked => !locked) }
 
   const isDateSelected = (task, date) => {
     return task.dates?.includes(date) || false
@@ -1045,12 +1032,12 @@ const projectSummary =
   }
 
   return (
-    <div className="app" onMouseUp={handleAppMouseUp}>
+    <div className={`app ${canEdit ? 'admin-mode' : 'viewer-mode'}`} onMouseUp={handleAppMouseUp}>
       <div role="status" style={{ padding: 8, background: '#eef2ff', color: '#172554' }}>
         {isSaving ? '저장 중입니다. 완료될 때까지 편집을 기다려 주세요.' :
-          loadError || (dbReady ? '개인 Planner · 서버 연결됨' : '서버 데이터를 확인하고 있습니다…')}
-        {loadError && <button onClick={loadFromDB}>다시 불러오기</button>}
+          loadError || (dbReady ? (canEdit ? '관리자 · 편집 가능' : '공개 뷰어 · 조회 전용') : '서버 데이터를 확인하고 있습니다…')}
       </div>
+      {loadError && <button onClick={downloadBackup}>현재 작업 백업 다운로드</button>}
       <div inert={isSaving ? true : undefined}>
       <datalist id="owner-suggestions">
         {ownerSuggestions.map(owner => (
@@ -1098,7 +1085,7 @@ const projectSummary =
       <div className="toolbar">
         {page === 'planner' ? (
           <>
-            <button className="planner-mobile-hide" onClick={addProject}>
+            <button className="planner-mobile-hide" data-edit-control="true" onClick={addProject}>
               + 프로젝트
             </button>
             <button
@@ -1116,48 +1103,36 @@ const projectSummary =
             </button>
 
             <button
-              className={selectedRange === 'month' ? 'active-range' : ''}
-              onClick={() => setRange('month')}
+              onClick={scrollToCurrentMonth}
+              title="전체 일정 범위를 유지하고 이번 달로 이동"
             >
               이번달
-            </button>
-            <button
-              className={selectedRange === '3months' ? 'active-range' : ''}
-              onClick={() => setRange('3months')}
-            >
-              최근3개월
-            </button>
-            <button
-              className={selectedRange === '6months' ? 'active-range' : ''}
-              onClick={() => setRange('6months')}
-            >
-              최근6개월
             </button>
             <button className="planner-mobile-hide" onClick={addOneMonth}>
               +1개월
             </button>
 
-            <button className="planner-mobile-hide" onClick={toggleScheduleLock}>
+            <button className="planner-mobile-hide" data-edit-control="true" onClick={toggleScheduleLock}>
               {scheduleLocked ? '🔒 일정 편집 잠금' : '편집중'}
             </button>
 
             <button
               className="planner-mobile-hide"
-              onClick={saveAllToDB}
+              data-edit-control="true" onClick={saveAllToDB}
               disabled={isSaving || !dbReady}
             >
               {isSaving ? '저장중...' : '저장'}
             </button>
             <button
               className="planner-mobile-hide"
-              onClick={() => moveLocalHistory(-1)}
+              data-edit-control="true" onClick={() => moveLocalHistory(-1)}
               disabled={historyIndex <= 0}
             >
               ←
             </button>
             <button
               className="planner-mobile-hide"
-              onClick={() => moveLocalHistory(1)}
+              data-edit-control="true" onClick={() => moveLocalHistory(1)}
               disabled={historyIndex >= localHistory.length - 1}
             >
               →
@@ -1166,25 +1141,18 @@ const projectSummary =
         ) : (
           <>
             <button
-              className={selectedRange === 'all' ? 'active-range' : ''}
+
               onClick={() => {
-                setSelectedRange('all')
-                updateRange('2026-01-01', '2026-12-31')
+                setExtraMonths(0)
               }}
             >
               전체기간
             </button>
             <button
-              className={selectedRange === 'month' ? 'active-range' : ''}
-              onClick={() => setRange('month')}
+              onClick={scrollToCurrentMonth}
+              title="전체 일정 범위를 유지하고 이번 달로 이동"
             >
               이번달
-            </button>
-            <button
-              className={selectedRange === '3months' ? 'active-range' : ''}
-              onClick={() => setRange('3months')}
-            >
-              최근3개월
             </button>
             <button
               className="planner-mobile-hide"
@@ -1257,13 +1225,13 @@ const projectSummary =
                     <input
                       className="table-input"
                       value={project.name}
-                      disabled={scheduleLocked}
+                      disabled={!canEdit || scheduleLocked}
                       onChange={e => updateProjectName(project.id, e.target.value)}
                       onKeyDown={e => moveNextCell(e, project.id)}
                     />
                     <button
-                      className="add-task-btn"
-                      disabled={scheduleLocked}
+                      data-edit-control="true" className="add-task-btn"
+                      disabled={!canEdit || scheduleLocked}
                       onClick={() => addTaskToProject(project.id)}
                       title="업무 추가"
                     >
@@ -1311,7 +1279,7 @@ const projectSummary =
                             className="table-input"
                             onKeyDown={e => moveNextCell(e, project.id)}
                             value={task.work}
-                            disabled={scheduleLocked}
+                            disabled={!canEdit || scheduleLocked}
                             onChange={e =>
                               updateTask(project.id, task.id, 'work', e.target.value)
                             }
@@ -1320,7 +1288,7 @@ const projectSummary =
                             className="table-input"
                             onKeyDown={e => moveNextCell(e, project.id)}
                             value={task.title}
-                            disabled={scheduleLocked}
+                            disabled={!canEdit || scheduleLocked}
                             onChange={e =>
                               updateTask(project.id, task.id, 'title', e.target.value)
                             }
@@ -1336,7 +1304,7 @@ const projectSummary =
                                   className="table-input"
                                   onKeyDown={e => moveNextCell(e, project.id)}
                                   value={task.artifactName}
-                                  disabled={scheduleLocked}
+                                  disabled={!canEdit || scheduleLocked}
                                   onChange={e =>
                                     updateTask(
                                       project.id,
@@ -1373,7 +1341,7 @@ const projectSummary =
                                 list="owner-suggestions"
                                 onKeyDown={e => moveNextCell(e, project.id)}
                                 value={task.owner}
-                                disabled={scheduleLocked}
+                                disabled={!canEdit || scheduleLocked}
                                 onChange={e =>
                                   updateTask(project.id, task.id, 'owner', e.target.value)
                                 }
@@ -1394,8 +1362,8 @@ const projectSummary =
                             </div>
                           </div>
                           <button
-                            className="delete-btn"
-                            disabled={scheduleLocked}
+                            data-edit-control="true" className="delete-btn"
+                            disabled={!canEdit || scheduleLocked}
                             onClick={() => deleteTask(project.id, task.id)}
                             title="삭제"
                           >
@@ -1453,6 +1421,7 @@ const projectSummary =
                           toggleCustomHolidayDate(dateString)
                         }}
                         key={day.toISOString()}
+                        data-date={dateString}
                       >
                         {format(day, 'd')}
                       </div>
@@ -1571,7 +1540,7 @@ const projectSummary =
               {urlEditor.urls.map((url, i) => (
                 <div className="url-list-row" key={i}>
                   <input
-                    className="url-url-input"
+                    readOnly={!canEdit} className="url-url-input"
                     value={url}
                     placeholder="https://..."
                     autoFocus={i === urlEditor.urls.length - 1}
@@ -1586,7 +1555,7 @@ const projectSummary =
                     title="열기"
                   >↗</button>
                   <button
-                    className="delete-url-btn"
+                    data-edit-control="true" className="delete-url-btn"
                     onClick={() => setUrlEditor({
                       ...urlEditor,
                       urls: urlEditor.urls.filter((_, idx) => idx !== i),
@@ -1598,7 +1567,7 @@ const projectSummary =
             </div>
 
             <button
-              className="add-url-btn"
+              data-edit-control="true" className="add-url-btn"
               onClick={() => setUrlEditor({ ...urlEditor, urls: [...urlEditor.urls, ''] })}
             >
               + URL 추가
@@ -1606,7 +1575,9 @@ const projectSummary =
 
             <div className="modal-actions">
               <button
+                data-edit-control="true"
                 onClick={() => {
+                  if (!canEdit) return
                   const validUrls = urlEditor.urls.filter(u => u.trim())
                   updateTaskFields(urlEditor.projectId, urlEditor.taskId, {
                     artifactUrls: validUrls,
@@ -1617,7 +1588,7 @@ const projectSummary =
               >
                 저장
               </button>
-              <button onClick={() => setUrlEditor(null)}>취소</button>
+              <button onClick={() => setUrlEditor(null)}>{canEdit ? '취소' : '닫기'}</button>
             </div>
           </div>
         </div>
@@ -1632,6 +1603,7 @@ const projectSummary =
             </div>
 
             <textarea
+              readOnly={!canEdit}
               value={memoEditor.memo}
               onChange={e =>
                 setMemoEditor({
@@ -1645,7 +1617,7 @@ const projectSummary =
 
             <div className="memo-modal-actions">
               <button
-                className="danger"
+                data-edit-control="true" className="danger"
                 onClick={() => {
                   const { projectId, taskId, date } = memoEditor
 
@@ -1677,10 +1649,10 @@ const projectSummary =
               </button>
 
               <div className="memo-modal-right">
-                <button onClick={() => setMemoEditor(null)}>취소</button>
+                <button onClick={() => setMemoEditor(null)}>{canEdit ? '취소' : '닫기'}</button>
 
                 <button
-                  className="primary"
+                  data-edit-control="true" className="primary"
                   onClick={() => {
                     const { projectId, taskId, date, memo } = memoEditor
 

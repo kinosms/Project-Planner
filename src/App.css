@@ -4201,3 +4201,7 @@ h1 {
   font-size: 11px;
   color: #16a34a;
 }
+
+/* Public viewers keep navigation and document links, but cannot edit. */
+.viewer-mode [data-edit-control="true"] { display: none !important; }
+.viewer-mode .table-input:disabled { opacity: 1; -webkit-text-fill-color: currentColor; }

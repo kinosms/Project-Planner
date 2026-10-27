@@ -1,45 +1,21 @@
+import { payloadError } from '../src/lib/plannerValidation.js'
 import { createClient } from '@supabase/supabase-js'
 
 const fail = (res, status, error) => res.status(status).json({ error })
-const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-  !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
-const text = (value, max = 20000) => typeof value === 'string' && value.length <= max
-const id = value => Number.isSafeInteger(value) && value > 0
-const dates = value => Array.isArray(value) && value.length <= 10000 && value.every(date) && new Set(value).size === value.length
-const url = value => {
-  if (!text(value, 4096)) return false
-  try { return ['https:', 'http:'].includes(new URL(value).protocol) } catch { return false }
-}
-export function validPayload(p) {
-  if (!p || !Number.isSafeInteger(p.revision) || p.revision < 0 ||
-    !date(p.rangeStart) || !date(p.rangeEnd) || p.rangeStart > p.rangeEnd ||
-    (Date.parse(p.rangeEnd) - Date.parse(p.rangeStart)) / 86400000 > 3660 ||
-    !dates(p.customHolidayDates) || !Array.isArray(p.projects) || p.projects.length > 1000) return false
-  const projectIds = new Set(), taskIds = new Set()
-  let count = 0
-  for (const project of p.projects) {
-    if (!project || !id(project.id) || projectIds.has(project.id) || !text(project.name) || !Array.isArray(project.tasks)) return false
-    projectIds.add(project.id)
-    for (const t of project.tasks) {
-      if (++count > 10000 || !t || !id(t.id) || taskIds.has(t.id)) return false
-      taskIds.add(t.id)
-      if (!['work', 'title', 'owner', 'status', 'artifactName'].every(k => t[k] == null || text(t[k]))) return false
-      if (!dates(t.dates || []) || !dates(t.redDates || []) || (t.dates || []).some(d => (t.redDates || []).includes(d))) return false
-      if (t.artifactUrls != null && (!Array.isArray(t.artifactUrls) || t.artifactUrls.length > 100 || !t.artifactUrls.every(url))) return false
-      if (t.artifactUrl && !url(t.artifactUrl)) return false
-      if (t.memoDates != null && (typeof t.memoDates !== 'object' || Array.isArray(t.memoDates) ||
-        !Object.entries(t.memoDates).every(([d, memo]) => date(d) && text(memo)))) return false
-    }
-  }
-  return true
-}
+export function validPayload(p) { return payloadError(p) === null }
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store')
   res.setHeader('X-Content-Type-Options', 'nosniff')
-  // Fail closed unless an operator explicitly completed the deployment-protection setup.
-  // This flag is NOT authentication. Every deployment/API URL must be protected by Vercel.
-  if (process.env.PLANNER_ACCESS_MODE !== 'vercel-protected') return fail(res, 503, '서버 접근 보호 설정이 완료되지 않았습니다.')
+  // Separate deployments: public-readonly must reject all writes before touching the DB.
+  // vercel-protected is an operator assertion, NOT authentication: protect ALL admin URLs.
+  const mode = process.env.PLANNER_ACCESS_MODE
+  if (!['vercel-protected', 'public-readonly'].includes(mode)) return fail(res, 503, '서버 접근 보호 설정이 완료되지 않았습니다.')
+  const canEdit = mode === 'vercel-protected'
+  if (!canEdit && req.method !== 'GET') {
+    res.setHeader('Allow', 'GET')
+    return fail(res, 405, '공개 뷰어에서는 조회만 가능합니다.')
+  }
   if (!['GET', 'PUT'].includes(req.method)) {
     res.setHeader('Allow', 'GET, PUT')
     return fail(res, 405, '허용하지 않는 요청입니다.')
@@ -55,7 +31,8 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
       if (typeof payload === 'string') payload = JSON.parse(payload)
       if (Buffer.byteLength(JSON.stringify(payload) || '') > 3000000) return fail(res, 413, '저장 데이터가 너무 큽니다.')
-      if (!validPayload(payload)) return fail(res, 400, '데이터 형식·날짜·문서 URL을 확인해 주세요. URL은 http/https만 허용됩니다.')
+      const validationError = payloadError(payload)
+      if (validationError) return fail(res, 400, validationError)
     }
     const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -68,7 +45,7 @@ export default async function handler(req, res) {
       console.error('Planner DB request failed', { code: error.code })
       return fail(res, 500, 'DB 처리에 실패했습니다. 로컬 작업은 유지됩니다.')
     }
-    return res.status(200).json(data)
+    return res.status(200).json({ ...data, canEdit })
   } catch {
     return fail(res, 400, '요청을 처리하지 못했습니다. 로컬 백업 후 서버 상태를 확인해 주세요.')
   }

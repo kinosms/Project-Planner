@@ -1,3 +1,4 @@
+import { readHistoryPage } from '../src/lib/historyPage.js'
 import { payloadError } from '../src/lib/plannerValidation.js'
 import { createClient } from '@supabase/supabase-js'
 
@@ -37,6 +38,10 @@ export default async function handler(req, res) {
     const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     })
+    if (req.method === 'GET' && req.query?.resource === 'histories') {
+      const result = await readHistoryPage(db, req.query.before)
+      return res.status(result.status).json(result.body)
+    }
     const { data, error } = req.method === 'GET'
       ? await db.rpc('planner_read')
       : await db.rpc('planner_save', { payload })

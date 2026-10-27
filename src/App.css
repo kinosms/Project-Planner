@@ -4211,3 +4211,9 @@ h1 {
 .grid-cell.red-selected:hover { background: #dc2626; }
 .grid-cell.selected { background: #3b82f6; }
 .grid-cell.selected:hover { background: #2563eb; }
+
+.history-pagination { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 16px; }
+.history-pagination p { margin: 0; color: #64748b; font-size: 14px; }
+.history-pagination [role="alert"] { color: #b91c1c; }
+.history-pagination button { padding: 10px 24px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #334155; cursor: pointer; }
+.history-pagination button:disabled { opacity: .6; cursor: wait; }

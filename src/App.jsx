@@ -1,3 +1,4 @@
+import useHistoryPages from './useHistoryPages.js'
 import { normalizeProjects, paintTaskDate } from './lib/plannerColors.js'
 import { payloadError } from './lib/plannerValidation.js'
 import { plannerRequest } from './plannerApi'
@@ -93,7 +94,6 @@ export default function App() {
 const [toast, setToast] = useState('')
 
 
-  const [histories, setHistories] = useState([])
 
   const isProjectCompleted = project => {
 
@@ -385,7 +385,6 @@ const moveLocalHistory = direction => {
 
   const applyServerState = data => {
     setProjects(data.projects)
-    setHistories(data.histories)
     revisionRef.current = data.revision
     localStorage.setItem('projectPlannerProjects', JSON.stringify(data.projects))
     if (data.customHolidayDates !== null) {
@@ -467,8 +466,7 @@ const moveLocalHistory = direction => {
         !confirm('DB 데이터와 로컬 작업이 다릅니다. 확인: DB 불러오기 / 취소: 로컬 작업 유지. 기존 로컬 사본은 별도 보관됩니다.')
       if (keepLocal) {
         revisionRef.current = data.revision
-        setHistories(data.histories)
-      } else {
+          } else {
         applyServerState(data)
       }
       setDbReady(true)
@@ -1118,30 +1116,7 @@ const projectSummary =
               →
             </button>
                       </>
-        ) : (
-          <>
-            <button
-
-              onClick={() => {
-                setExtraMonths(0)
-              }}
-            >
-              전체기간
-            </button>
-            <button
-              onClick={scrollToCurrentMonth}
-              title="전체 일정 범위를 유지하고 이번 달로 이동"
-            >
-              이번달
-            </button>
-            <button
-              className="planner-mobile-hide"
-              onClick={() => setHideCompletedProjects(prev => !prev)}
-            >
-              {hideCompletedProjects ? '진행프로젝트' : '전체프로젝트'}
-            </button>
-          </>
-        )}
+        ) : null}
       </div>
     </header>
 
@@ -1505,7 +1480,6 @@ const projectSummary =
         ) : window.innerWidth > 768 ? (
 
          <History
-          histories={histories}
           focusHistory={focusHistory}
         />
 
@@ -2268,7 +2242,8 @@ function buildHistorySentence(history) {
   }
 }
 
-function History({ histories, focusHistory }) {
+function History({ focusHistory }) {
+  const { items: histories, loading, error, hasMore, loadMore } = useHistoryPages()
   return (
     <div className="history-page">
       <section className="history-board">
@@ -2279,7 +2254,7 @@ function History({ histories, focusHistory }) {
             <span>프로젝트</span>
             <span>변경내용</span>
           </div>
-          {histories.length === 0 ? (
+          {histories.length === 0 && !loading && !error ? (
             <div className="history-empty">수정 이력이 없습니다.</div>
           ) : (
             histories.map(history => {
@@ -2309,6 +2284,18 @@ function History({ histories, focusHistory }) {
                 </div>
               )
             })
+          )}
+        </div>
+        <div className="history-pagination">
+          {loading && <p role="status">히스토리를 불러오는 중입니다…</p>}
+          {error && <p role="alert">{error}</p>}
+          {(hasMore || error) && (
+            <button type="button" onClick={loadMore} disabled={loading}>
+              {error ? '다시 시도' : '더 보기 (20개)'}
+            </button>
+          )}
+          {!loading && !error && histories.length > 0 && !hasMore && (
+            <p role="status">모든 히스토리를 불러왔습니다.</p>
           )}
         </div>
       </section>

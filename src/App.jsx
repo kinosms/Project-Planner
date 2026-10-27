@@ -1171,6 +1171,9 @@ const projectSummary =
             >
               →
             </button>
+            <span className="planner-shortcut-hint planner-mobile-hide" data-edit-control="true">
+              셀 이동: Shift + 드래그 · 일정 메모: Shift + Option + 클릭
+            </span>
                       </>
         ) : null}
       </div>

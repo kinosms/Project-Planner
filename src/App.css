@@ -4230,3 +4230,11 @@ h1 {
 .topbar:has(> .toolbar:empty) {
   height: auto;
 }
+
+.planner-shortcut-hint {
+  margin-left: 6px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+}

@@ -34,7 +34,6 @@ export function payloadError(p) {
         const error = dateError(t[key] || [], `${where} ${key}`)
         if (error) return error
       }
-      if ((t.dates || []).some(d => (t.redDates || []).includes(d))) return `${where}: 일반 일정과 빨간 일정에 같은 날짜가 겹칩니다.`
       if (t.artifactUrls != null) {
         if (!Array.isArray(t.artifactUrls) || t.artifactUrls.length > 100) return `${where}: 문서 링크는 최대 100개까지 가능합니다.`
         const bad=t.artifactUrls.findIndex(v => !validUrl(v))

@@ -11,7 +11,10 @@ test('duplicate task IDs are diagnosed without changing data',()=>{
  const p=sample();p.projects[0].tasks.push({...p.projects[0].tasks[0]});const before=JSON.stringify(p)
  assert.match(payloadError(p),/업무 2.*ID/);assert.equal(JSON.stringify(p),before)
 })
-test('overlapping schedule colors and impossible dates are diagnosed',()=>{
- const p=sample();p.projects[0].tasks[0].redDates=['2026-10-27'];assert.match(payloadError(p),/겹칩니다/)
- p.projects[0].tasks[0].redDates=['2026-02-30'];assert.match(payloadError(p),/실제 존재/)
+test('normal and red schedules may share a date without data loss',()=>{
+ const p=sample();p.projects[0].tasks[0].redDates=['2026-10-27'];const before=JSON.stringify(p)
+ assert.equal(payloadError(p),null);assert.equal(JSON.stringify(p),before)
+})
+test('impossible dates are still rejected',()=>{
+ const p=sample();p.projects[0].tasks[0].redDates=['2026-02-30'];assert.match(payloadError(p),/실제 존재/)
 })

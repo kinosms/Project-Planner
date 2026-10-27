@@ -4205,3 +4205,9 @@ h1 {
 /* Public viewers keep navigation and document links, but cannot edit. */
 .viewer-mode [data-edit-control="true"] { display: none !important; }
 .viewer-mode .table-input:disabled { opacity: 1; -webkit-text-fill-color: currentColor; }
+
+/* Explicit task colors take priority over calendar backgrounds, including today. */
+.grid-cell.red-selected { background: #ef4444; }
+.grid-cell.red-selected:hover { background: #dc2626; }
+.grid-cell.selected { background: #3b82f6; }
+.grid-cell.selected:hover { background: #2563eb; }

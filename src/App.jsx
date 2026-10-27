@@ -1,3 +1,4 @@
+import { normalizeProjects, paintTaskDate } from './lib/plannerColors.js'
 import { payloadError } from './lib/plannerValidation.js'
 import { plannerRequest } from './plannerApi'
 import { useEffect, useMemo, useState, useRef } from 'react'
@@ -319,8 +320,9 @@ const [toast, setToast] = useState('')
 
   const saveProjects = next => {
     if (!canEdit) return
-    setProjects(next)
-    localStorage.setItem('projectPlannerProjects', JSON.stringify(next))
+    const normalized = normalizeProjects(next)
+    setProjects(normalized)
+    localStorage.setItem('projectPlannerProjects', JSON.stringify(normalized))
   }
 
   const showToast = message => {
@@ -572,13 +574,7 @@ const moveLocalHistory = direction => {
               ...project,
               tasks: project.tasks.map(task => {
                 if (task.id !== taskId) return task
-                const redDates = task.redDates || []
-                return {
-                  ...task,
-                  redDates: redDates.includes(date)
-                    ? redDates.filter(d => d !== date)
-                    : [...redDates, date],
-                }
+                return paintTaskDate(task, date, 'red')
               }),
             }
           : project
@@ -587,7 +583,7 @@ const moveLocalHistory = direction => {
   }
 
   const isRedDateSelected = (task, date) => {
-    return task.redDates?.includes(date)
+    return !task.dates?.includes(date) && Boolean(task.redDates?.includes(date))
   }
 
   const addTaskToProject = projectId => {
@@ -736,23 +732,7 @@ const moveLocalHistory = direction => {
               tasks: project.tasks.map(task => {
                 if (task.id !== taskId) return task
 
-                const prevDates = task.dates || []
-                let nextDates = prevDates
-
-                if (mode === 'add') {
-                  nextDates = prevDates.includes(date)
-                    ? prevDates
-                    : [...prevDates, date].sort()
-                }
-
-                if (mode === 'remove') {
-                  nextDates = prevDates.filter(d => d !== date)
-                }
-
-                return {
-                  ...task,
-                  dates: nextDates,
-                }
+                return paintTaskDate(task, date, mode === 'add' ? 'blue' : null)
               }),
             }
           : project
@@ -1464,7 +1444,7 @@ const projectSummary =
                           ].join(' ')}
                           title={task.memoDates?.[date] || ''}
                           onMouseDown={e => {
-                            if (scheduleLocked) return
+                            if (scheduleLocked || e.detail > 1) return
                             if (e.shiftKey) {
                               e.preventDefault()
                               updateDateMemo(project.id, task.id, date)

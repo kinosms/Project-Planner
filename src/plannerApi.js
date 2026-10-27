@@ -1,8 +1,9 @@
+import { normalizeProjects } from './lib/plannerColors.js'
 export async function plannerRequest(method, payload) {
   const response = await fetch('/api/planner', {
     method, credentials: 'same-origin', cache: 'no-store',
     headers: payload ? { 'Content-Type': 'application/json' } : undefined,
-    body: payload ? JSON.stringify(payload) : undefined,
+    body: payload ? JSON.stringify({ ...payload, projects: normalizeProjects(payload.projects) }) : undefined,
   })
   const type = response.headers.get('content-type') || ''
   if (!type.includes('application/json')) {
@@ -16,7 +17,7 @@ export async function plannerRequest(method, payload) {
   }
   if (!Array.isArray(data.projects) || !Array.isArray(data.histories) ||
       !Number.isSafeInteger(data.revision)) throw new Error('서버 응답 형식 오류')
-  data.projects = data.projects.map(project => ({
+  data.projects = normalizeProjects(data.projects).map(project => ({
     ...project,
     tasks: project.tasks.map(task => {
       const raw = task.artifactUrl || ''

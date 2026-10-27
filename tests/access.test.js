@@ -1,39 +1,34 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import handler from '../api/planner.js'
+import handler, { createPlannerHandler } from '../api/planner.js'
+import { ORIGIN } from '../server/adminAuth.js'
+const response = () => ({ headers: {}, setHeader(k,v) { this.headers[k]=v }, status(n) { this.statusCode=n; return this }, json(body) { this.body=body; return this } })
+const payload = { revision:0, projects:[], rangeStart:'2026-10-01', rangeEnd:'2026-10-31', customHolidayDates:[] }
 
-async function request(mode, method, origin) {
-  const original = { ...process.env }
-  try {
-    if (mode) process.env.PLANNER_ACCESS_MODE = mode
-    else delete process.env.PLANNER_ACCESS_MODE
-    delete process.env.SUPABASE_URL
-    delete process.env.SUPABASE_SECRET_KEY
-    process.env.PLANNER_ALLOWED_ORIGINS = 'https://admin.example.com'
-    const res = { headers: {}, setHeader(k,v) { this.headers[k] = v }, status(n) { this.statusCode=n; return this }, json(body) { this.body=body; return this } }
-    await handler({ method, headers: { origin, 'content-type': 'application/json' }, body: {} },res)
-    return res
-  } finally {
-    for (const key of Object.keys(process.env)) if (!(key in original)) delete process.env[key]
-    Object.assign(process.env, original)
-  }
-}
-test('public deployment rejects every write before database access, even with an allowed origin', async () => {
-  for (const method of ['PUT','POST','PATCH','DELETE','OPTIONS']) {
-    const res = await request('public-readonly', method, 'https://admin.example.com')
-    assert.equal(res.statusCode, 405)
-    assert.equal(res.headers.Allow, 'GET')
-  }
+test('legacy deployment mode and fabricated identity headers never authorize anonymous writes', async () => {
+ process.env.PLANNER_ACCESS_MODE='vercel-protected'
+ for (const headers of [{}, { 'x-vercel-id':'owner', 'x-vercel-user-email':'geronimo.sung@kakaocorp.com' }, { cookie:'__Host-planner_admin=forged' }]) {
+  const res=response()
+  await handler({ method:'PUT', headers:{ ...headers, origin:ORIGIN, 'content-type':'application/json' }, body:payload },res)
+  assert.equal(res.statusCode,403)
+ }
 })
-test('public GET reaches DB configuration validation', async () => {
-  const res=await request('public-readonly','GET')
-  assert.equal(res.statusCode,503)
-  assert.equal(res.body.error,'서버 DB 설정이 필요합니다.')
+test('anonymous GET is public, other methods fail before DB access', async () => {
+ const rpcCalls=[]
+ const run=createPlannerHandler({ authenticate:async()=>false, connect:()=>({ rpc:async(name)=>{ rpcCalls.push(name); return { data:{ projects:[], histories:[], revision:1 }, error:null } } }) })
+ process.env.SUPABASE_URL='https://example.supabase.co'; process.env.SUPABASE_SECRET_KEY='test-only'
+ const res=response(); await run({ method:'GET', headers:{} },res)
+ assert.equal(res.statusCode,200); assert.equal(res.body.canEdit,false); assert.deepEqual(rpcCalls,['planner_read'])
+ for (const method of ['POST','DELETE','PATCH']) { const r=response(); await run({method,headers:{}},r); assert.equal(r.statusCode,405) }
+ assert.deepEqual(rpcCalls,['planner_read'])
 })
-test('missing or invalid access mode fails closed', async () => {
-  for (const mode of [undefined,'public','invalid']) assert.equal((await request(mode,'GET')).statusCode,503)
-})
-test('admin retains origin validation and rejects unsupported methods', async () => {
-  assert.equal((await request('vercel-protected','PUT','https://public.example.com')).statusCode,403)
-  assert.equal((await request('vercel-protected','DELETE')).statusCode,405)
+test('only a verified administrator from the canonical origin can save', async () => {
+ let calls=0
+ const run=createPlannerHandler({ authenticate:async()=>true, connect:()=>({ rpc:async(name)=>{ assert.equal(name,'planner_save'); calls++; return { data:{ projects:[], histories:[], revision:1 }, error:null } } }) })
+ for (const origin of [undefined,'https://evil.example','null']) {
+  const res=response(); await run({ method:'PUT', headers:{ origin,'content-type':'application/json' },body:payload },res); assert.equal(res.statusCode,403)
+ }
+ assert.equal(calls,0)
+ const res=response(); await run({method:'PUT',headers:{origin:ORIGIN,'content-type':'application/json'},body:payload},res)
+ assert.equal(res.statusCode,200); assert.equal(res.body.canEdit,true); assert.equal(calls,1)
 })

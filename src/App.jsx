@@ -71,6 +71,9 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false)
   const [dbReady, setDbReady] = useState(false)
   const [canEdit, setCanEdit] = useState(false)
+  const [authConfigured, setAuthConfigured] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
   const [loadError, setLoadError] = useState('')
   const revisionRef = useRef(null)
   const savingRef = useRef(false)
@@ -429,6 +432,7 @@ const moveLocalHistory = direction => {
       localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(nextList))
       showToast('DB 저장 완료')
     } catch (error) {
+      if ([401, 403].includes(error.status)) { setCanEdit(false); setScheduleLocked(true) }
       // 응답 유실 시 커밋 여부를 알 수 없으므로 자동 재시도하지 않습니다.
       if ([400, 413, 415].includes(error.status)) {
         setLoadError(error.message + ' 현재 작업은 유지됩니다. 해당 항목을 수정한 뒤 다시 저장하세요.')
@@ -460,6 +464,7 @@ const moveLocalHistory = direction => {
       const data = await plannerRequest('GET')
       const localProjects = JSON.parse(localStorage.getItem('projectPlannerProjects') || '[]')
       setCanEdit(data.canEdit === true)
+      setAuthConfigured(data.authConfigured === true)
       if (data.canEdit !== true) setScheduleLocked(true)
       const keepLocal = data.canEdit === true && localProjects.length > 0 &&
         JSON.stringify(localProjects) !== JSON.stringify(data.projects) &&
@@ -480,6 +485,47 @@ const moveLocalHistory = direction => {
   useEffect(() => {
     loadFromDB()
   }, [])
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('auth') === 'denied') {
+      setAuthError('관리자 로그인을 완료하지 못했습니다. 지정된 본인 Vercel 계정으로 다시 로그인해 주세요.')
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+    let active = true
+    const controller = new AbortController()
+    async function checkSession() {
+      try {
+        const response = await fetch('/api/auth?action=session', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+        if (!response.ok) throw new Error('Session check failed')
+        const data = await response.json()
+        if (!active) return
+        setAuthConfigured(data.authConfigured === true)
+        setCanEdit(data.canEdit === true)
+        if (!data.canEdit) setScheduleLocked(true)
+      } catch {
+        if (active) { setCanEdit(false); setScheduleLocked(true) }
+      }
+    }
+    const timer = setInterval(checkSession, 30000)
+    window.addEventListener('focus', checkSession)
+    return () => { active = false; controller.abort(); clearInterval(timer); window.removeEventListener('focus', checkSession) }
+  }, [])
+
+  const logoutAdmin = async () => {
+    if (savingRef.current || authBusy) return
+    setAuthBusy(true)
+    setCanEdit(false)
+    setScheduleLocked(true)
+    try {
+      const response = await fetch('/api/auth?action=logout', { method: 'POST', credentials: 'same-origin' })
+      if (!response.ok) throw new Error('로그아웃하지 못했습니다. 다시 시도해 주세요.')
+      window.location.assign('/')
+    } catch (error) {
+      setAuthError(error.message)
+      setAuthBusy(false)
+    }
+  }
+
 
   useEffect(() => {
     const onKeyDown = e => { if (e.key === 'Shift') setIsShiftHeld(true) }
@@ -1011,10 +1057,20 @@ const projectSummary =
 
   return (
     <div className={`app ${canEdit ? 'admin-mode' : 'viewer-mode'}`} onMouseUp={handleAppMouseUp}>
-      <div role="status" style={{ padding: 8, background: '#eef2ff', color: '#172554' }}>
-        {isSaving ? '저장 중입니다. 완료될 때까지 편집을 기다려 주세요.' :
-          loadError || (dbReady ? (canEdit ? '관리자 · 편집 가능' : '공개 뷰어 · 조회 전용') : '서버 데이터를 확인하고 있습니다…')}
+      <div className="access-bar">
+        <div role="status">
+          {isSaving ? '저장 중입니다. 완료될 때까지 편집을 기다려 주세요.' :
+            loadError || (dbReady ? (canEdit ? '관리자 · 편집 가능' : '뷰어 · 조회 전용') : '서버 데이터를 확인하고 있습니다…')}
+        </div>
+        {canEdit ? (
+          <button type="button" onClick={logoutAdmin} disabled={isSaving || authBusy}>로그아웃</button>
+        ) : authConfigured ? (
+          <a href="/api/auth?action=login">관리자 로그인</a>
+        ) : (
+          <button type="button" disabled title="관리자 로그인 연결 설정이 필요합니다.">관리자 로그인</button>
+        )}
       </div>
+      {authError && <div role="alert" className="auth-error">{authError}</div>}
       {loadError && <button onClick={downloadBackup}>현재 작업 백업 다운로드</button>}
       <div inert={isSaving ? true : undefined}>
       <datalist id="owner-suggestions">

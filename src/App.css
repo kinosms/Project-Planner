@@ -4217,3 +4217,8 @@ h1 {
 .history-pagination [role="alert"] { color: #b91c1c; }
 .history-pagination button { padding: 10px 24px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #334155; cursor: pointer; }
 .history-pagination button:disabled { opacity: .6; cursor: wait; }
+
+.access-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 12px; background: #eef2ff; color: #172554; }
+.access-bar a, .access-bar button { flex-shrink: 0; padding: 7px 12px; border: 1px solid #c7d2fe; border-radius: 8px; background: white; color: #172554; text-decoration: none; font: inherit; font-size: 14px; cursor: pointer; }
+.access-bar button:disabled { opacity: .55; cursor: default; }
+.auth-error { padding: 10px 12px; background: #fef2f2; color: #991b1b; }

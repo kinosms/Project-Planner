@@ -1072,7 +1072,7 @@ const projectSummary =
       </div>
       {authError && <div role="alert" className="auth-error">{authError}</div>}
       {loadError && <button onClick={downloadBackup}>현재 작업 백업 다운로드</button>}
-      <div inert={isSaving ? true : undefined}>
+      <div className="app-content" inert={isSaving ? true : undefined}>
       <datalist id="owner-suggestions">
         {ownerSuggestions.map(owner => (
           <option key={owner} value={owner} />

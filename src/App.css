@@ -4238,3 +4238,36 @@ h1 {
   line-height: 1.5;
   white-space: nowrap;
 }
+
+/* Account for the actual access banner and header heights, including alerts. */
+@media (min-width: 901px) {
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  .app > :not(.app-content) {
+    flex-shrink: 0;
+  }
+
+  .app-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .app-content > .topbar {
+    flex-shrink: 0;
+  }
+
+  .app-content > .planner,
+  .app-content > .dashboard,
+  .app-content > .history-page {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    box-sizing: border-box;
+  }
+}

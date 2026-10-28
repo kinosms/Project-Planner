@@ -2159,7 +2159,7 @@ function Dashboard({
 
                 return (
                   <div className="project-task-row" key={task.id}>
-                    <span>{task.work || '-'}</span>
+                    <span>{task.work || ''}</span>
                     <span>{task.title || '-'}</span>
                     <span>
                     {task.artifactUrls?.length ? (
@@ -2233,7 +2233,7 @@ function Dashboard({
                 return (
                   <div className="owner-task-row" key={`${task.projectName}-${task.id}`}>
                     <span>{task.projectName}</span>
-                    <span>{task.work || '-'}</span>
+                    <span>{task.work || ''}</span>
                     <span>{task.title || '-'}</span>
                     <span>{getDisplayStatus(task)}</span>
 

@@ -1243,6 +1243,7 @@ const projectSummary =
                       onChange={e => updateProjectName(project.id, e.target.value)}
                       onKeyDown={e => moveNextCell(e, project.id)}
                     />
+                    <span className="mobile-project-name">{project.name}</span>
                     <button
                       data-edit-control="true" className="add-task-btn"
                       disabled={!canEdit || scheduleLocked}

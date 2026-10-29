@@ -4292,3 +4292,25 @@ h1 {
     font-size: 12px;
   }
 }
+
+.mobile-project-name {
+  display: none;
+}
+
+@media (max-width: 900px), (max-width: 1024px) and (orientation: landscape) and (max-height: 500px) {
+  .project-cell > input {
+    display: none;
+  }
+
+  .project-cell > .mobile-project-name {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 6px 0;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+}

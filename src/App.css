@@ -1475,7 +1475,7 @@ h1 {
    RESPONSIVE - MOBILE
 ========================= */
 
-@media (max-width: 900px) {
+@media (max-width: 900px), (max-width: 1024px) and (orientation: landscape) and (max-height: 500px) {
 
   body {
     overflow: auto;
@@ -1484,7 +1484,8 @@ h1 {
 
   .app {
     padding: 8px;
-    overflow: auto;
+    height: auto;
+    overflow: visible;
     min-height: 100dvh;
   }
 
@@ -1585,7 +1586,7 @@ h1 {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
-    padding-top: 10px;
+    padding-top: 0;
     padding-bottom: 8px;
   }
 
@@ -1640,16 +1641,6 @@ h1 {
 
   .toolbar::-webkit-scrollbar {
     display: none;
-  }
-
-  .topbar::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -80px;
-    height: 80px;
-    background: #f5f6fa;
   }
 
   .toolbar::-webkit-scrollbar {
@@ -4240,7 +4231,7 @@ h1 {
 }
 
 /* Account for the actual access banner and header heights, including alerts. */
-@media (min-width: 901px) {
+@media (min-width: 901px) and ((orientation: portrait) or (min-height: 501px) or (min-width: 1025px)) {
   .owner-task-header > span:first-child,
   .owner-task-row > span:first-child {
     min-width: 0;
@@ -4277,5 +4268,27 @@ h1 {
     min-height: 0;
     height: auto;
     box-sizing: border-box;
+  }
+}
+
+/* Keep the account controls visible instead of masking them with header paint. */
+@media (max-width: 900px), (max-width: 1024px) and (orientation: landscape) and (max-height: 500px) {
+  .access-bar {
+    gap: 8px;
+    padding: 4px 6px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .access-bar > [role="status"] {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .access-bar a,
+  .access-bar button {
+    padding: 5px 8px;
+    font-size: 12px;
   }
 }

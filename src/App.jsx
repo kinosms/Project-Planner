@@ -2129,6 +2129,7 @@ function Dashboard({
             </strong>
           </div>
 
+          <div className="bubble-scroll">
           <div className="project-bubbles">
             {dashboardProjects
               .filter(project => project.name && project.name.trim())
@@ -2141,6 +2142,7 @@ function Dashboard({
                   {project.name}
                 </button>
               ))}
+          </div>
           </div>
 
           <div className="project-task-table">

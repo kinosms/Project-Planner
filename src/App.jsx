@@ -1,8 +1,10 @@
+import { bindPlannerInteractions } from './lib/plannerInteractions.js'
+import TaskDetailInput from './TaskDetailInput.jsx'
 import useHistoryPages from './useHistoryPages.js'
 import { normalizeProjects, paintTaskDate } from './lib/plannerColors.js'
 import { payloadError } from './lib/plannerValidation.js'
 import { plannerRequest } from './plannerApi'
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import IntegrityCheck from './IntegrityCheck'
 import {
   addMonths,
@@ -206,6 +208,11 @@ const [toast, setToast] = useState('')
   }
 
   const taskRefs = useRef({})
+  const [taskRowHeights, setTaskRowHeights] = useState({})
+  const setTaskRowHeight = useCallback((id, height) => {
+    setTaskRowHeights(previous => previous[id] === height
+      ? previous : { ...previous, [id]: height })
+  }, [])
 
   const centerToday = (behavior = 'smooth') => {
     const plannerEl = document.querySelector('.planner')
@@ -528,14 +535,24 @@ const moveLocalHistory = direction => {
 
 
   useEffect(() => {
-    const onKeyDown = e => { if (e.key === 'Shift') setIsShiftHeld(true) }
-    const onKeyUp = e => { if (e.key === 'Shift') setIsShiftHeld(false) }
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
+    const resetInteraction = () => {
+      setIsShiftHeld(false)
+      setDragging(null)
+      setDragOver(null)
+      setIsPainting(false)
+      setPaintMode(null)
     }
+    const endPointerInteraction = () => {
+      setDragging(null)
+      setDragOver(null)
+      setIsPainting(false)
+      setPaintMode(null)
+    }
+    return bindPlannerInteractions(window, document, {
+      reset: resetInteraction,
+      endPointer: endPointerInteraction,
+      syncShift: event => setIsShiftHeld(event.shiftKey),
+    })
   }, [])
 
   const reorderProject = (fromId, toId) => {
@@ -1271,6 +1288,7 @@ const projectSummary =
                             dragging?.type === 'task' && dragging.projectId === project.id && dragOver?.taskId === task.id && dragging.taskId !== task.id ? 'drag-over-task' : '',
                           ].join(' ')}
                           key={task.id}
+                          style={{ height: taskRowHeights[task.id] || 30 }}
                           onMouseDown={e => {
                             if (scheduleLocked || !e.shiftKey) return
                             e.preventDefault()
@@ -1299,8 +1317,9 @@ const projectSummary =
                               updateTask(project.id, task.id, 'work', e.target.value)
                             }
                           />
-                          <input
-                            className="table-input"
+                          <TaskDetailInput
+                            taskId={task.id}
+                            onHeightChange={setTaskRowHeight}
                             onKeyDown={e => moveNextCell(e, project.id)}
                             value={task.title}
                             disabled={!canEdit || scheduleLocked}
@@ -1459,6 +1478,7 @@ const projectSummary =
                         dragging?.type === 'project' && dragging.id === project.id ? 'dragging' : '',
                       ].join(' ')}
                       key={`${project.id}-${task.id}`}
+                      style={{ height: taskRowHeights[task.id] || 30 }}
                     >
                     {days.map(day => {
                       const date = format(day, 'yyyy-MM-dd')

@@ -4314,3 +4314,32 @@ h1 {
     overflow-wrap: anywhere;
   }
 }
+
+/* Keep multiline details and their calendar row aligned. */
+.task-row-fields .task-detail-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 29px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 0;
+  border-right: 1px solid #ddd;
+  border-radius: 0;
+  background: white;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  line-height: 17px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: none;
+  overflow: hidden;
+}
+.task-row-fields .task-detail-input:focus {
+  outline: 1px solid #3b82f6;
+  outline-offset: -1px;
+  z-index: 2;
+}
+.task-highlight .task-detail-input { animation: taskBlink 5s ease; }
+.timeline-row > .grid-cell { height: 100%; }

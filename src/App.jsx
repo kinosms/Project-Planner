@@ -64,6 +64,7 @@ export default function App() {
   const [isShiftHeld, setIsShiftHeld] = useState(false)
   const [dragging, setDragging] = useState(null)
   const [dragOver, setDragOver] = useState(null)
+  const projectDrag = useRef(null)
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
   const [page, setPage] = useState('dashboard')
@@ -536,6 +537,7 @@ const moveLocalHistory = direction => {
 
   useEffect(() => {
     const resetInteraction = () => {
+      projectDrag.current = null
       setIsShiftHeld(false)
       setDragging(null)
       setDragOver(null)
@@ -560,9 +562,43 @@ const moveLocalHistory = direction => {
     const next = [...projects]
     const fromIdx = next.findIndex(p => p.id === fromId)
     const toIdx = next.findIndex(p => p.id === toId)
+    if (fromIdx < 0 || toIdx < 0) return
     const [moved] = next.splice(fromIdx, 1)
     next.splice(toIdx, 0, moved)
     saveProjects(next)
+  }
+
+  const findProjectDropTarget = event => {
+    const row = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest('[data-project-drop-id]')
+    return visibleProjects.find(project => String(project.id) === row?.dataset.projectDropId)
+  }
+
+  const startProjectDrag = (event, id) => {
+    if (!canEdit || scheduleLocked || !event.shiftKey || event.button !== 0) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    projectDrag.current = { id, pointerId: event.pointerId }
+    setDragging({ type: 'project', id })
+    setDragOver({ id })
+  }
+
+  const moveProjectDrag = event => {
+    if (projectDrag.current?.pointerId !== event.pointerId) return
+    const target = findProjectDropTarget(event)
+    setDragOver(previous => previous?.id === target?.id ? previous : target ? { id: target.id } : null)
+  }
+
+  const finishProjectDrag = event => {
+    const active = projectDrag.current
+    if (!active || active.pointerId !== event.pointerId) return
+    projectDrag.current = null
+    if (event.type === 'pointerup' && canEdit && !scheduleLocked) {
+      const target = findProjectDropTarget(event)
+      if (target) reorderProject(active.id, target.id)
+    }
+    setDragging(null)
+    setDragOver(null)
   }
 
   const reorderTask = (projectId, fromTaskId, toTaskId) => {
@@ -1229,16 +1265,7 @@ const projectSummary =
                       : '',
                   ].join(' ')}
                   key={project.id}
-                  onMouseEnter={() => {
-                    if (dragging?.type === 'project') setDragOver({ id: project.id })
-                  }}
-                  onMouseUp={() => {
-                    if (dragging?.type === 'project' && dragOver?.id && dragging.id !== dragOver.id) {
-                      reorderProject(dragging.id, dragOver.id)
-                    }
-                    setDragging(null)
-                    setDragOver(null)
-                  }}
+                  data-project-drop-id={project.id}
                 >
                   <div
                     className={[
@@ -1246,12 +1273,11 @@ const projectSummary =
                       !scheduleLocked && isShiftHeld ? 'shift-draggable' : '',
                       dragging?.type === 'project' && dragging.id === project.id ? 'dragging' : '',
                     ].join(' ')}
-                    onMouseDown={e => {
-                      if (scheduleLocked || !e.shiftKey) return
-                      e.preventDefault()
-                      setDragging({ type: 'project', id: project.id })
-                      setDragOver({ id: project.id })
-                    }}
+                    onPointerDown={event => startProjectDrag(event, project.id)}
+                    onPointerMove={moveProjectDrag}
+                    onPointerUp={finishProjectDrag}
+                    onPointerCancel={finishProjectDrag}
+                    onLostPointerCapture={finishProjectDrag}
                   >
                     <input
                       className="table-input"
@@ -1478,6 +1504,7 @@ const projectSummary =
                         dragging?.type === 'project' && dragging.id === project.id ? 'dragging' : '',
                       ].join(' ')}
                       key={`${project.id}-${task.id}`}
+                      data-project-drop-id={project.id}
                       style={{ height: taskRowHeights[task.id] || 30 }}
                     >
                     {days.map(day => {

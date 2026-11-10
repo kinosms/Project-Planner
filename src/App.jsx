@@ -64,7 +64,7 @@ export default function App() {
   const [isShiftHeld, setIsShiftHeld] = useState(false)
   const [dragging, setDragging] = useState(null)
   const [dragOver, setDragOver] = useState(null)
-  const projectDrag = useRef(null)
+  const rowDrag = useRef(null)
   const [urlEditor, setUrlEditor] = useState(null)
   const [scheduleLocked, setScheduleLocked] = useState(true)
   const [page, setPage] = useState('dashboard')
@@ -537,7 +537,7 @@ const moveLocalHistory = direction => {
 
   useEffect(() => {
     const resetInteraction = () => {
-      projectDrag.current = null
+      rowDrag.current = null
       setIsShiftHeld(false)
       setDragging(null)
       setDragOver(null)
@@ -568,34 +568,46 @@ const moveLocalHistory = direction => {
     saveProjects(next)
   }
 
-  const findProjectDropTarget = event => {
-    const row = document.elementFromPoint(event.clientX, event.clientY)
-      ?.closest('[data-project-drop-id]')
-    return visibleProjects.find(project => String(project.id) === row?.dataset.projectDropId)
+  const findRowDropTarget = (event, source) => {
+    const element = document.elementFromPoint(event.clientX, event.clientY)
+    const row = element?.closest('[data-project-drop-id]')
+    const project = visibleProjects.find(item => String(item.id) === row?.dataset.projectDropId)
+    if (!project) return null
+    if (source.type === 'project') return { id: project.id }
+    if (project.id !== source.projectId) return null
+    const taskRow = element.closest('[data-task-drop-id]')
+    const task = project.tasks.find(item => String(item.id) === taskRow?.dataset.taskDropId)
+    return task ? { taskId: task.id } : null
   }
 
-  const startProjectDrag = (event, id) => {
+  const startRowDrag = (event, source) => {
     if (!canEdit || scheduleLocked || !event.shiftKey || event.button !== 0) return
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
-    projectDrag.current = { id, pointerId: event.pointerId }
-    setDragging({ type: 'project', id })
-    setDragOver({ id })
+    rowDrag.current = { ...source, pointerId: event.pointerId }
+    setDragging(source)
+    setDragOver(source.type === 'project' ? { id: source.id } : { taskId: source.taskId })
   }
 
-  const moveProjectDrag = event => {
-    if (projectDrag.current?.pointerId !== event.pointerId) return
-    const target = findProjectDropTarget(event)
-    setDragOver(previous => previous?.id === target?.id ? previous : target ? { id: target.id } : null)
+  const moveRowDrag = event => {
+    const source = rowDrag.current
+    if (source?.pointerId !== event.pointerId) return
+    const target = findRowDropTarget(event, source)
+    setDragOver(previous =>
+      previous?.id === target?.id && previous?.taskId === target?.taskId ? previous : target
+    )
   }
 
-  const finishProjectDrag = event => {
-    const active = projectDrag.current
-    if (!active || active.pointerId !== event.pointerId) return
-    projectDrag.current = null
+  const finishRowDrag = event => {
+    const source = rowDrag.current
+    if (source?.pointerId !== event.pointerId) return
+    rowDrag.current = null
     if (event.type === 'pointerup' && canEdit && !scheduleLocked) {
-      const target = findProjectDropTarget(event)
-      if (target) reorderProject(active.id, target.id)
+      const target = findRowDropTarget(event, source)
+      if (target) {
+        if (source.type === 'project') reorderProject(source.id, target.id)
+        else reorderTask(source.projectId, source.taskId, target.taskId)
+      }
     }
     setDragging(null)
     setDragOver(null)
@@ -609,6 +621,7 @@ const moveLocalHistory = direction => {
         const tasks = [...project.tasks]
         const fromIdx = tasks.findIndex(t => t.id === fromTaskId)
         const toIdx = tasks.findIndex(t => t.id === toTaskId)
+        if (fromIdx < 0 || toIdx < 0) return project
         const [moved] = tasks.splice(fromIdx, 1)
         tasks.splice(toIdx, 0, moved)
         return { ...project, tasks }
@@ -1273,11 +1286,11 @@ const projectSummary =
                       !scheduleLocked && isShiftHeld ? 'shift-draggable' : '',
                       dragging?.type === 'project' && dragging.id === project.id ? 'dragging' : '',
                     ].join(' ')}
-                    onPointerDown={event => startProjectDrag(event, project.id)}
-                    onPointerMove={moveProjectDrag}
-                    onPointerUp={finishProjectDrag}
-                    onPointerCancel={finishProjectDrag}
-                    onLostPointerCapture={finishProjectDrag}
+                    onPointerDown={event => startRowDrag(event, { type: 'project', id: project.id })}
+                    onPointerMove={moveRowDrag}
+                    onPointerUp={finishRowDrag}
+                    onPointerCancel={finishRowDrag}
+                    onLostPointerCapture={finishRowDrag}
                   >
                     <input
                       className="table-input"
@@ -1315,24 +1328,12 @@ const projectSummary =
                           ].join(' ')}
                           key={task.id}
                           style={{ height: taskRowHeights[task.id] || 30 }}
-                          onMouseDown={e => {
-                            if (scheduleLocked || !e.shiftKey) return
-                            e.preventDefault()
-                            setDragging({ type: 'task', projectId: project.id, taskId: task.id })
-                            setDragOver({ taskId: task.id })
-                          }}
-                          onMouseEnter={() => {
-                            if (dragging?.type === 'task' && dragging.projectId === project.id) {
-                              setDragOver({ taskId: task.id })
-                            }
-                          }}
-                          onMouseUp={() => {
-                            if (dragging?.type === 'task' && dragging.projectId === project.id && dragOver?.taskId && dragging.taskId !== dragOver.taskId) {
-                              reorderTask(project.id, dragging.taskId, dragOver.taskId)
-                            }
-                            setDragging(null)
-                            setDragOver(null)
-                          }}
+                          data-task-drop-id={task.id}
+                          onPointerDown={event => startRowDrag(event, { type: 'task', projectId: project.id, taskId: task.id })}
+                          onPointerMove={moveRowDrag}
+                          onPointerUp={finishRowDrag}
+                          onPointerCancel={finishRowDrag}
+                          onLostPointerCapture={finishRowDrag}
                         >
                           <input
                             className="table-input"
@@ -1505,6 +1506,7 @@ const projectSummary =
                       ].join(' ')}
                       key={`${project.id}-${task.id}`}
                       data-project-drop-id={project.id}
+                      data-task-drop-id={task.id}
                       style={{ height: taskRowHeights[task.id] || 30 }}
                     >
                     {days.map(day => {
